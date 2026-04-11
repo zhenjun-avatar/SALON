@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 def _service_to_feishu_multi(value: str | list[str]) -> list[str]:
@@ -30,6 +30,19 @@ class BookingDraft(BaseModel):
     history_summary: str | None = None
     notes: str | None = None
     status: str = Field(default="pending")
+
+    @field_validator(
+        "phone", "store", "service", "slot_text",
+        "color_summary", "history_summary", "notes", "external_user_id",
+        mode="before",
+    )
+    @classmethod
+    def _empty_str_to_none(cls, v: object) -> object:
+        """Dify template variables render as empty string when the slot was never filled;
+        convert those to None so they are excluded from to_feishu_fields output."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     def to_feishu_fields(self, field_map: dict[str, str]) -> dict[str, Any]:
         """将模型字段映射为飞书多维表 fields；未映射的键跳过。"""
