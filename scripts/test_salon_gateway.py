@@ -5,10 +5,11 @@ Run from repo root (or anywhere) with gateway already started:
 
   python scripts/test_salon_gateway.py
 
-Reads SALON_INTERNAL_BOOKING_TOKEN from env or src/agent/.env unless --skip-booking.
+Reads SALON_INTERNAL_BOOKING_TOKEN from env or .env unless --skip-booking.
+Base URL: env SALON_TEST_BASE_URL, then same .env file (see --env-file), else http://127.0.0.1:8765.
 
 Env:
-  SALON_TEST_BASE_URL   default http://127.0.0.1:8765
+  SALON_TEST_BASE_URL   optional; overrides .env
   SALON_INTERNAL_BOOKING_TOKEN  optional; overrides .env for this script
 """
 
@@ -27,26 +28,34 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def load_token_from_env_file(env_path: Path) -> str | None:
+def _value_from_env_file(env_path: Path, key: str) -> str | None:
     if not env_path.is_file():
         return None
     text = env_path.read_text(encoding="utf-8")
+    prefix = f"{key}="
     for line in text.splitlines():
         s = line.strip()
         if not s or s.startswith("#"):
             continue
-        if s.startswith("SALON_INTERNAL_BOOKING_TOKEN="):
+        if s.startswith(prefix):
             v = s.split("=", 1)[1].strip().strip('"').strip("'")
             return v if v else None
     return None
 
 
+def load_token_from_env_file(env_path: Path) -> str | None:
+    return _value_from_env_file(env_path, "SALON_INTERNAL_BOOKING_TOKEN")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Test salon_gateway HTTP endpoints.")
+    env_file_default = _repo_root() / "src" / "agent" / ".env"
+
     parser.add_argument(
         "--base-url",
-        default=os.environ.get("SALON_TEST_BASE_URL", "http://127.0.0.1:8765"),
-        help="Gateway base URL",
+        default=None,
+        metavar="URL",
+        help="Gateway base URL (default: $SALON_TEST_BASE_URL or from .env or http://127.0.0.1:8765)",
     )
     parser.add_argument(
         "--token",
@@ -67,12 +76,19 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    env_file = args.env_file or (_repo_root() / "src" / "agent" / ".env")
+    env_file = args.env_file or env_file_default
+    base_url = args.base_url
+    if not base_url:
+        base_url = (
+            os.environ.get("SALON_TEST_BASE_URL")
+            or _value_from_env_file(env_file, "SALON_TEST_BASE_URL")
+            or "http://127.0.0.1:8765"
+        )
     token = args.token or os.environ.get("SALON_INTERNAL_BOOKING_TOKEN")
     if not token:
         token = load_token_from_env_file(env_file)
 
-    base = args.base_url.rstrip("/")
+    base = base_url.rstrip("/")
 
     # --- GET /health ---
     try:
