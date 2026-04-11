@@ -3,8 +3,12 @@
 #
 # 导入后必做：
 # 1) 打开「LLM」节点，选择模型供应商与模型（DSL 无法携带你的账号模型）。
-# 2) 打开「提交预约」HTTP 节点，将 authorization Bearer 的 api_key 改为你的
-#    SALON_INTERNAL_BOOKING_TOKEN（或改用工作空间「环境变量 / 密钥」引用）。
+# 2) 打开「提交预约」HTTP 节点，将 authorization Bearer 的 api_key 改为与服务器
+#    `SALON_INTERNAL_BOOKING_TOKEN` 完全相同的字符串（逐字符一致，含长度）。
+#    本 DSL 默认占位符为 REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN（长度 41）。
+#    若你从未修改该项，网关会收到 41 字节的 Bearer，而 .env 里多为自行生成的更长密钥，
+#    日志即表现为 parsed_token_len=41、accepted_token_lengths=[其它长度] — 属配置未对齐，非网关截断。
+#    也可用工作空间「环境变量 / 密钥」引用同一值，但必须解析后与 .env 一致。
 # 3) 若网关不在默认域名，改 URL 为 https://你的域名/salon/internal/booking
 # 4) 点击「发布」后再用网关调 Dify API。
 #

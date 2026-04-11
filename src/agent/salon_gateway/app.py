@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sys
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -62,6 +63,11 @@ def _normalize_secret(s: str) -> str:
     return (s or "").strip().strip("\ufeff").strip()
 
 
+def _secret_fingerprint(s: str) -> str:
+    """Short SHA-256 prefix for logs (compare locally to .env without pasting the secret)."""
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()[:12]
+
+
 def _bearer_or_header(
     authorization: str | None,
     x_salon_token: str | None,
@@ -90,12 +96,15 @@ def _auth_internal(
     got = _bearer_or_header(authorization, x_salon_token)
     if got not in allowed:
         lens = sorted({len(x) for x in allowed})
+        afps = sorted({_secret_fingerprint(x) for x in allowed})
         logger.error(
-            "internal_booking unauthorized: has_authorization_header={} has_x_salon_token={} parsed_token_len={} accepted_token_lengths={}",
+            "internal_booking unauthorized: has_authorization_header={} has_x_salon_token={} parsed_token_len={} parsed_token_sha256_12={} accepted_token_lengths={} accepted_token_sha256_12={}",
             bool(_normalize_secret(authorization or "")),
             bool(_normalize_secret(x_salon_token or "")),
             len(got),
+            _secret_fingerprint(got),
             lens,
+            afps,
         )
         raise HTTPException(status_code=401, detail="unauthorized")
 
