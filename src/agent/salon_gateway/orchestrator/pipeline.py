@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import httpx
 from loguru import logger
 
 from salon_gateway.ai.dify import DifyChatClient
@@ -37,6 +38,17 @@ class SalonPipeline:
                 query=msg.content,
                 conversation_id=cid,
             )
+        except httpx.HTTPStatusError as e:
+            try:
+                snippet = (e.response.text or "")[:4000]
+            except Exception:
+                snippet = ""
+            logger.error(
+                "dify chat-messages HTTP {} body: {}",
+                e.response.status_code,
+                snippet,
+            )
+            return "抱歉，系统暂时繁忙，请稍后再试。"
         except Exception as e:
             logger.exception("dify chat failed: {}", e)
             return "抱歉，系统暂时繁忙，请稍后再试。"

@@ -14,6 +14,7 @@ class DifyChatClient:
     def __init__(self, settings: SalonGatewaySettings) -> None:
         self._base = settings.dify_api_base.rstrip("/")
         self._key = settings.dify_api_key
+        self._default_inputs = settings.dify_default_inputs
 
     def _log_error_body(self, r: httpx.Response) -> None:
         try:
@@ -33,8 +34,9 @@ class DifyChatClient:
         if not self._key:
             return ("服务未配置 Dify API Key。", None)
         url = f"{self._base}/chat-messages"
+        merged_inputs: dict[str, Any] = {**self._default_inputs, **(inputs or {})}
         payload: dict[str, Any] = {
-            "inputs": inputs or {},
+            "inputs": merged_inputs,
             "query": query,
             "user": user,
             "response_mode": "blocking",
@@ -56,7 +58,6 @@ class DifyChatClient:
                 r = await client.post(url, json=payload, headers=headers)
 
             if r.is_error:
-                self._log_error_body(r)
                 r.raise_for_status()
 
             data = r.json()

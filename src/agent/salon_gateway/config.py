@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -40,6 +41,8 @@ class SalonGatewaySettings(BaseSettings):
         default="wecom",
         description="传给 Dify 的 user id 前缀，如 wecom:userid",
     )
+    # Chatflow 开始节点必填变量：与控制台变量名一致，合并进 chat-messages 的 inputs
+    dify_default_inputs_json: str = Field(default="{}", description='JSON 对象，如 {"lang":"zh"}')
 
     # --- 内部：Dify HTTP 工具回调写预约 ---
     internal_booking_token: str = Field(
@@ -63,6 +66,17 @@ class SalonGatewaySettings(BaseSettings):
     )
     # JSON: {"phone":"手机号","store":"门店",...} 将 BookingDraft 字段映射到飞书列名
     feishu_field_map_json: str = "{}"
+
+    @property
+    def dify_default_inputs(self) -> dict[str, Any]:
+        raw = self.dify_default_inputs_json.strip() or "{}"
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return {str(k): v for k, v in data.items()}
 
     @property
     def feishu_field_map(self) -> dict[str, str]:

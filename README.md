@@ -60,7 +60,7 @@ copy salon_gateway\env.example .env
 
 ## Configuration
 
-- **`src/agent/.env`**: see `src/agent/salon_gateway/env.example` for all `SALON_*` variables (WeCom token/AES key, Dify base URL and API key, Feishu app/table IDs, field map JSON, internal booking token).  
+- **`src/agent/.env`**: see `src/agent/salon_gateway/env.example` for all `SALON_*` variables (WeCom token/AES key, Dify base URL and API key, **`SALON_DIFY_DEFAULT_INPUTS_JSON`** for required Chatflow inputs, Feishu app/table IDs, field map JSON, internal booking token).  
 - Do **not** commit `.env`.
 
 ## Simulate WeCom + Dify Chatflow (booking and other tools)
