@@ -72,9 +72,10 @@ def _bearer_or_header(
     if not authorization:
         return ""
     raw = _normalize_secret(authorization)
-    prefix, sep, rest = raw.partition(" ")
-    if sep and prefix.lower() == "bearer":
-        return _normalize_secret(rest)
+    # Any whitespace after scheme (RFC-style); avoids Tab-only gap breaking partition(" ").
+    parts = raw.split(None, 1)
+    if len(parts) == 2 and parts[0].lower() == "bearer":
+        return _normalize_secret(parts[1])
     return raw
 
 
