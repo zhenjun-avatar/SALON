@@ -47,6 +47,12 @@ class SalonGatewaySettings(BaseSettings):
         description="Bearer / X-Salon-Token；为空则关闭 /internal/booking",
     )
 
+    # --- 模拟企微文本（仅调试；生产勿设置）---
+    simulate_token: str = Field(
+        default="",
+        description="非空则开启 POST /simulate/wecom-text，需 Bearer / X-Salon-Token 与此相同",
+    )
+
     # --- 飞书多维表（可选；未配置则只打日志）---
     feishu_app_id: str = ""
     feishu_app_secret: str = ""

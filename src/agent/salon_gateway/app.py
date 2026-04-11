@@ -17,6 +17,8 @@ from salon_gateway.ingress.wecom import (
     render_text_reply,
 )
 from salon_gateway.models.booking import BookingDraft
+from salon_gateway.models.messages import WecomTextInbound
+from salon_gateway.models.simulate import SimulateWecomTextIn
 from salon_gateway.orchestrator.pipeline import SalonPipeline, default_pipeline
 from salon_gateway.sink.feishu import FeishuBitableSink
 from salon_gateway.sink.null_sink import LoggingSink
@@ -56,6 +58,16 @@ def _get_sink(settings: SalonGatewaySettings) -> FeishuBitableSink | LoggingSink
     return _sink
 
 
+def _bearer_or_header(
+    authorization: str | None,
+    x_salon_token: str | None,
+) -> str:
+    got = (x_salon_token or "").strip()
+    if not got and authorization and authorization.startswith("Bearer "):
+        got = authorization.removeprefix("Bearer ").strip()
+    return got
+
+
 def _auth_internal(
     settings: SalonGatewaySettings,
     authorization: str | None,
@@ -64,10 +76,19 @@ def _auth_internal(
     expected = (settings.internal_booking_token or "").strip()
     if not expected:
         raise HTTPException(status_code=404, detail="internal booking disabled")
-    got = (x_salon_token or "").strip()
-    if not got and authorization and authorization.startswith("Bearer "):
-        got = authorization.removeprefix("Bearer ").strip()
-    if got != expected:
+    if _bearer_or_header(authorization, x_salon_token) != expected:
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+def _auth_simulate(
+    settings: SalonGatewaySettings,
+    authorization: str | None,
+    x_salon_token: str | None,
+) -> None:
+    expected = (settings.simulate_token or "").strip()
+    if not expected:
+        raise HTTPException(status_code=404, detail="simulate disabled")
+    if _bearer_or_header(authorization, x_salon_token) != expected:
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
@@ -151,3 +172,24 @@ async def internal_booking(
         logger.exception("append_booking failed: {}", e)
         raise HTTPException(status_code=502, detail="sink failed") from e
     return {"ok": True, "dedup": False}
+
+
+@app.post("/simulate/wecom-text")
+async def simulate_wecom_text(
+    body: SimulateWecomTextIn,
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> dict[str, str]:
+    """Same pipeline as WeCom text → Dify; JSON in/out for local / Chatflow testing."""
+    settings = get_settings()
+    _auth_simulate(settings, authorization, x_salon_token)
+    msg = WecomTextInbound(
+        from_user=body.from_user.strip(),
+        to_user=body.to_user.strip(),
+        agent_id=None,
+        msg_id=body.msg_id,
+        content=body.content,
+    )
+    pipe = _get_pipeline(settings)
+    reply = await pipe.handle_text(msg)
+    return {"reply": reply}
