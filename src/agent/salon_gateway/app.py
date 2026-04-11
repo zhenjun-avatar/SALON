@@ -58,14 +58,24 @@ def _get_sink(settings: SalonGatewaySettings) -> FeishuBitableSink | LoggingSink
     return _sink
 
 
+def _normalize_secret(s: str) -> str:
+    return (s or "").strip().strip("\ufeff").strip()
+
+
 def _bearer_or_header(
     authorization: str | None,
     x_salon_token: str | None,
 ) -> str:
-    got = (x_salon_token or "").strip()
-    if not got and authorization and authorization.startswith("Bearer "):
-        got = authorization.removeprefix("Bearer ").strip()
-    return got
+    got = _normalize_secret(x_salon_token or "")
+    if got:
+        return got
+    if not authorization:
+        return ""
+    raw = _normalize_secret(authorization)
+    prefix, sep, rest = raw.partition(" ")
+    if sep and prefix.lower() == "bearer":
+        return _normalize_secret(rest)
+    return raw
 
 
 def _auth_internal(
@@ -73,10 +83,18 @@ def _auth_internal(
     authorization: str | None,
     x_salon_token: str | None,
 ) -> None:
-    expected = (settings.internal_booking_token or "").strip()
+    expected = _normalize_secret(settings.internal_booking_token or "")
     if not expected:
         raise HTTPException(status_code=404, detail="internal booking disabled")
-    if _bearer_or_header(authorization, x_salon_token) != expected:
+    got = _bearer_or_header(authorization, x_salon_token)
+    if got != expected:
+        logger.error(
+            "internal_booking unauthorized: has_authorization_header={} has_x_salon_token={} parsed_token_len={} expected_len={}",
+            bool(_normalize_secret(authorization or "")),
+            bool(_normalize_secret(x_salon_token or "")),
+            len(got),
+            len(expected),
+        )
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
@@ -85,7 +103,7 @@ def _auth_simulate(
     authorization: str | None,
     x_salon_token: str | None,
 ) -> None:
-    expected = (settings.simulate_token or "").strip()
+    expected = _normalize_secret(settings.simulate_token or "")
     if not expected:
         raise HTTPException(status_code=404, detail="simulate disabled")
     if _bearer_or_header(authorization, x_salon_token) != expected:
@@ -157,11 +175,19 @@ async def wecom_message(
 
 @app.post("/internal/booking")
 async def internal_booking(
+    request: Request,
     draft: BookingDraft,
     authorization: Annotated[str | None, Header()] = None,
     x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
 ) -> dict[str, bool]:
     settings = get_settings()
+    raw_auth = request.headers.get("authorization")
+    logger.info(
+        "internal_booking: raw_Authorization_present={} fastapi_Header_authorization_present={} X-Salon-Token_present={}",
+        raw_auth is not None,
+        authorization is not None,
+        (x_salon_token or "").strip() != "",
+    )
     _auth_internal(settings, authorization, x_salon_token)
     if not _idempotency.should_process(draft.idempotency_key):
         return {"ok": True, "dedup": True}

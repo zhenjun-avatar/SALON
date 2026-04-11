@@ -1,0 +1,167 @@
+# Dify DSL — Salon Chatflow (Start → LLM → HTTP 提交预约 → Answer)
+# 导入：Dify 工作室 → 导入 DSL → 选择本文件
+#
+# 导入后必做：
+# 1) 打开「LLM」节点，选择模型供应商与模型（DSL 无法携带你的账号模型）。
+# 2) 打开「提交预约」HTTP 节点，将 authorization Bearer 的 api_key 改为你的
+#    SALON_INTERNAL_BOOKING_TOKEN（或改用工作空间「环境变量 / 密钥」引用）。
+# 3) 若网关不在默认域名，改 URL 为 https://你的域名/salon/internal/booking
+# 4) 点击「发布」后再用网关调 Dify API。
+#
+# 说明：当前 HTTP 在每次对话都会请求网关（演示用）。生产请在画布中加「条件分支」
+# 或参数提取，仅在信息齐全时连到 HTTP 节点。
+#
+# DSL 版本与 Dify 实例不一致时可能提示警告或失败；请优先用与你控制台「导出 DSL」
+# 相同的版本号（可把下方 version 改成导出文件里的 version 再试）。
+
+app:
+  description: Salon WeCom gateway — LLM reply + POST /internal/booking (template).
+  icon: 💇
+  icon_background: '#FFEAD5'
+  mode: advanced-chat
+  name: Salon 预约客服 (DSL 模板)
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.3.1
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload: {}
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+      - id: start-llm
+        source: '1755189262236'
+        sourceHandle: source
+        target: llm
+        targetHandle: target
+      - id: llm-http
+        source: llm
+        sourceHandle: source
+        target: http_booking
+        targetHandle: target
+      - id: http-answer
+        source: http_booking
+        sourceHandle: source
+        target: answer
+        targetHandle: target
+    nodes:
+      - data:
+          desc: ''
+          title: Start
+          type: start
+          variables: []
+        id: '1755189262236'
+        position:
+          x: 80
+          y: 282
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: ''
+          memory:
+            query_prompt_template: '{{#sys.query#}}
+
+              {{#sys.files#}}'
+            window:
+              enabled: true
+              size: 20
+          model:
+            completion_params:
+              temperature: 0.5
+            mode: chat
+            name: ''
+            provider: ''
+          prompt_template:
+            - role: system
+              selected: true
+              text: |-
+                你是美发沙龙线上客服。用简短、友好的中文回复用户。
+                若用户想预约，请询问或确认：联系电话、门店（如适用）、服务项目、意向时间。
+                不要回复「我是 AI 无法预约」。
+                注意：工作流会在你回复后自动调用后台「提交预约」接口；请在回复中用一句话概括用户的预约意向（时间/项目），便于后台记录到备注。
+          title: LLM
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        id: llm
+        position:
+          x: 380
+          y: 282
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+      - data:
+          authorization:
+            config:
+              api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
+              header: ''
+              type: bearer
+            type: api-key
+          body:
+            data:
+              - id: json-body-1
+                key: ''
+                type: text
+                value: '{"channel":"dify","slot_text":"{{#sys.query#}}","notes":"{{#llm.text#}}","status":"pending"}'
+            type: json
+          desc: POST Salon gateway BookingDraft JSON（按需改字段名与变量）
+          headers: 'Content-Type: application/json'
+          method: post
+          params: ''
+          retry_config:
+            max_retries: 3
+            retry_enabled: true
+            retry_interval: 100
+          ssl_verify: true
+          timeout:
+            max_connect_timeout: 0
+            max_read_timeout: 0
+            max_write_timeout: 0
+          title: 提交预约
+          type: http-request
+          url: https://quizmesh.tech/salon/internal/booking
+          variables: []
+        id: http_booking
+        position:
+          x: 680
+          y: 282
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+      - data:
+          answer: |-
+            {{#llm.text#}}
+
+            （预约登记返回）{{#http_booking.body#}}
+          desc: ''
+          title: Answer
+          type: answer
+          variables: []
+        id: answer
+        position:
+          x: 980
+          y: 282
+        sourcePosition: right
+        targetPosition: left
+        type: custom
