@@ -41,7 +41,7 @@ def _value_from_env_file(env_path: Path, key: str) -> str | None:
         if not s or s.startswith("#"):
             continue
         if s.startswith(prefix):
-            v = s.split("=", 1)[1].strip().strip('"').strip("'")
+            v = s.split("=", 1)[1].strip().strip('"').strip("'").strip("\ufeff")
             return v if v else None
     return None
 
@@ -56,11 +56,22 @@ def _resolve_base_url(env_file: Path) -> str:
     return "http://127.0.0.1:8765"
 
 
+def _normalize_bearer_token(raw: str) -> str:
+    """Strip whitespace/BOM; if value looks like 'Bearer xxx', keep only xxx."""
+    t = (raw or "").strip().strip("\ufeff")
+    parts = t.split(None, 1)
+    if len(parts) == 2 and parts[0].lower() == "bearer":
+        return parts[1].strip()
+    return t
+
+
 def _resolve_simulate_token(env_file: Path) -> str | None:
     t = os.environ.get("SALON_SIMULATE_TOKEN")
     if t:
-        return t.strip() or None
-    return _value_from_env_file(env_file, "SALON_SIMULATE_TOKEN")
+        v = _normalize_bearer_token(t)
+        return v if v else None
+    from_file = _value_from_env_file(env_file, "SALON_SIMULATE_TOKEN")
+    return _normalize_bearer_token(from_file) if from_file else None
 
 
 def _post_simulate(
@@ -118,6 +129,7 @@ def _run_chat_loop(
     show_json: bool,
     initial_message: str,
 ) -> int:
+    failed = False
     print(
         f"模拟企微连续对话 (from_user={from_user!r}, base={base})\n"
         "每行一条消息；exit / quit / :q 结束；空行忽略。",
@@ -127,7 +139,7 @@ def _run_chat_loop(
     n = 0
 
     def one_turn(text: str) -> None:
-        nonlocal n
+        nonlocal n, failed
         n += 1
         msg_id = f"sim-chat-{n}"
         ok, obj, raw = _post_simulate(
@@ -139,6 +151,7 @@ def _run_chat_loop(
             msg_id=msg_id,
         )
         if not ok:
+            failed = True
             print(raw, file=sys.stderr)
             return
         if show_json and obj is not None:
@@ -165,7 +178,7 @@ def _run_chat_loop(
             break
         one_turn(text)
 
-    return 0
+    return 1 if failed else 0
 
 
 def main() -> int:
@@ -208,7 +221,7 @@ def main() -> int:
 
     env_file = args.env_file or env_file_default
     base = (args.base_url or _resolve_base_url(env_file)).rstrip("/")
-    token = (args.token or _resolve_simulate_token(env_file) or "").strip()
+    token = _normalize_bearer_token(args.token or _resolve_simulate_token(env_file) or "")
     if not token:
         print(
             "Missing SALON_SIMULATE_TOKEN (export it or set in %s)" % env_file,
