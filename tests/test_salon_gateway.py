@@ -67,3 +67,28 @@ def test_internal_booking_tokens_pipe_and_quotes() -> None:
 def test_booking_service_empty_omitted() -> None:
     assert BookingDraft(service="   ").to_feishu_fields({"service": "项目"}) == {}
     assert BookingDraft(service=[]).to_feishu_fields({"service": "项目"}) == {}
+
+
+def test_booking_session_accumulation() -> None:
+    from salon_gateway.booking.session import BookingSessionStore
+
+    store = BookingSessionStore()
+    cid = "conv-test-1"
+
+    # turn 1: slot_text + store only
+    d1 = BookingDraft(conversation_id=cid, slot_text="周五晚7点", store="东门店", channel="dify")
+    merged, newly = store.merge_and_check(cid, d1)
+    assert not newly  # phone missing
+
+    # turn 2: phone arrives
+    d2 = BookingDraft(conversation_id=cid, phone="18310607536", channel="dify")
+    merged, newly = store.merge_and_check(cid, d2)
+    assert newly  # all three now present
+    assert merged.phone == "18310607536"
+    assert merged.store == "东门店"
+    assert merged.slot_text == "周五晚7点"
+
+    # turn 3: same conversation — no longer newly_complete
+    d3 = BookingDraft(conversation_id=cid, color_summary="黄色", channel="dify")
+    _, newly = store.merge_and_check(cid, d3)
+    assert not newly  # already was complete

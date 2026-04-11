@@ -10,6 +10,7 @@ from fastapi.responses import PlainTextResponse
 from loguru import logger
 
 from salon_gateway.booking.idempotency import IdempotencyCache
+from salon_gateway.booking.session import BookingSessionStore
 from salon_gateway.config import SalonGatewaySettings, get_settings
 from salon_gateway.ingress.wecom import (
     WecomIngress,
@@ -28,6 +29,7 @@ _wecom: WecomIngress | None = None
 _pipeline: SalonPipeline | None = None
 _sink: FeishuBitableSink | LoggingSink | None = None
 _idempotency = IdempotencyCache()
+_booking_sessions = BookingSessionStore()
 
 
 def _get_wecom(settings: SalonGatewaySettings) -> WecomIngress:
@@ -200,15 +202,28 @@ async def internal_booking(
         (x_salon_token or "").strip() != "",
     )
     _auth_internal(settings, authorization, x_salon_token)
-    if not _idempotency.should_process(draft.idempotency_key):
-        return {"ok": True, "dedup": True}
+
+    # Session-based accumulation: merge fields from this turn into the
+    # conversation session.  Only write to Feishu the first time all required
+    # fields (phone + slot_text + store) are present.
+    cid = (draft.conversation_id or "").strip()
+    if cid:
+        merged, newly_complete = _booking_sessions.merge_and_check(cid, draft)
+        if not newly_complete:
+            return {"ok": True, "dedup": False, "complete": False}
+        draft = merged
+    else:
+        # No conversation_id: fall back to legacy single-turn idempotency.
+        if not _idempotency.should_process(draft.idempotency_key):
+            return {"ok": True, "dedup": True, "complete": True}
+
     sink = _get_sink(settings)
     try:
         await sink.append_booking(draft)
     except Exception as e:
         logger.exception("append_booking failed: {}", e)
         raise HTTPException(status_code=502, detail="sink failed") from e
-    return {"ok": True, "dedup": False}
+    return {"ok": True, "dedup": False, "complete": True}
 
 
 @app.post("/simulate/wecom-text")

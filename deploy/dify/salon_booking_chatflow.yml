@@ -1,26 +1,29 @@
-# Dify DSL — Salon Chatflow v2
-# 流程：Start → LLM → 参数提取 → 条件（电话+时间+门店齐全？）→ [是] HTTP 提交 → Answer
-#                                                              → [否]           → Answer
+# Dify DSL — Salon Chatflow v3
+#
+# 架构原则（生产最佳实践）
+# ─────────────────────────
+# Dify 无状态：参数提取节点每次只看「当前用户消息」，无法跨轮累积字段。
+# 正确做法：把状态管理放到后端（Python BookingSessionStore），Dify 只做：
+#   1. LLM 对话引导
+#   2. 从当前消息提取字段（parameter-extractor, query=sys.query）
+#   3. 每轮 POST 到网关（无论信息是否完整）
+# 网关负责跨轮累积，在首次 phone+slot_text+store 均齐时才写飞书，后续重复
+# 请求不再重写（complete=false 表示"收到但尚未完整"，complete=true 表示已写入）。
 #
 # 导入后必做：
-# 1) 打开「LLM」节点，选择模型供应商与模型（DSL 无法携带账号模型）。
-# 2) 打开「提取预约参数」节点，同样选择模型（建议与 LLM 节点相同）。
-# 3) 打开「提交预约」HTTP 节点，在「鉴权 API-Key（Bearer）」里填入与服务器
-#    SALON_INTERNAL_BOOKING_TOKEN 完全相同的密钥（逐字符一致）。
-#    注意：只保留内置 Bearer 鉴权，不要同时在 Headers 里再加 Authorization，
-#    两套并存时内置 Bearer 优先且仍为未改过的占位符，会导致 401。
-# 4) 若网关不在默认域名，改 URL 为 https://你的域名/salon/internal/booking
-# 5) 点「发布」后再调用 API。
-#
-# idempotency_key 使用 conversation_id：同一对话只写一次飞书。
-# 若用户在同一对话内修改预约信息，需手动清空旧行或换用新对话。
+# 1) 打开「LLM」节点，选择模型供应商与模型。
+# 2) 打开「提取预约参数」节点，同样选择模型（建议与 LLM 相同）。
+# 3) 打开「提交预约」HTTP 节点 → 鉴权 API-Key（Bearer）→ 填入 SALON_INTERNAL_BOOKING_TOKEN。
+#    只保留内置 Bearer，不要在 Headers 再手动加 Authorization（两套并存必 401）。
+# 4) 若网关不在默认域名，改 URL。
+# 5) 发布。
 
 app:
-  description: Salon WeCom gateway — LLM reply + 参数提取 + 条件分支 + POST /internal/booking
+  description: Salon WeCom gateway v3 — session-based booking accumulation
   icon: 💇
   icon_background: '#FFEAD5'
   mode: advanced-chat
-  name: Salon 预约客服 v2
+  name: Salon 预约客服 v3
   use_icon_as_answer_icon: false
 dependencies: []
 kind: app
@@ -56,25 +59,15 @@ workflow:
         sourceHandle: source
         target: node_extractor
         targetHandle: target
-      - id: extractor-ifelse
+      - id: extractor-http
         source: node_extractor
         sourceHandle: source
-        target: node_ifelse
-        targetHandle: target
-      - id: ifelse-true-http
-        source: node_ifelse
-        sourceHandle: 'true'
         target: node_http
         targetHandle: target
-      - id: http-answer-booking
+      - id: http-answer
         source: node_http
         sourceHandle: source
-        target: node_answer_booking
-        targetHandle: target
-      - id: ifelse-false-answer
-        source: node_ifelse
-        sourceHandle: 'false'
-        target: node_answer_chat
+        target: node_answer
         targetHandle: target
     nodes:
       - data:
@@ -111,9 +104,9 @@ workflow:
               selected: true
               text: |-
                 你是美发沙龙线上客服。用简短、友好的中文回复用户。
-                若用户想预约，请引导并确认：联系电话、门店（如适用）、服务项目、意向时间。
+                若用户想预约，引导收集：联系电话、门店、服务项目、意向时间。
                 不要回复「我是 AI 无法预约」。
-                工作流在电话、时间、门店三项均已收集后自动提交预约，请在回复中概括预约意向。
+                当你判断已收集到电话+门店+时间时，在回复中告知用户"预约已提交，等待确认"。
           title: LLM
           type: llm
           variables: []
@@ -128,15 +121,12 @@ workflow:
         type: custom
 
       - data:
-          desc: 从对话中提取结构化预约字段
+          desc: 从当前用户消息提取本轮新增的预约字段（网关负责跨轮累积）
           instruction: |-
-            从当前用户输入和历史对话中提取预约相关信息。
-            若某字段在对话中未出现，返回空字符串。
+            从当前用户输入中提取预约相关字段。只提取本条消息中明确出现的信息；
+            未出现的字段返回空字符串。
           memory:
-            enabled: true
-            window:
-              enabled: true
-              size: 20
+            enabled: false
           model:
             completion_params:
               temperature: 0.2
@@ -152,7 +142,7 @@ workflow:
               name: store
               required: false
               type: string
-            - description: 预约时间的自然语言描述（如 周五晚上7点、明天下午3点）
+            - description: 预约时间自然语言（如 周五晚上7点、明天下午3点）
               name: slot_text
               required: false
               type: string
@@ -160,7 +150,7 @@ workflow:
               name: service
               required: false
               type: string
-            - description: 发色要求（如 黄色、黑色渐变）
+            - description: 发色方案要求（如 黄色、黑色渐变）
               name: color_summary
               required: false
               type: string
@@ -179,40 +169,6 @@ workflow:
         type: custom
 
       - data:
-          cases:
-            - case_id: 'true'
-              conditions:
-                - comparison_operator: not empty
-                  id: cond_phone
-                  value: ''
-                  variable_selector:
-                    - node_extractor
-                    - phone
-                - comparison_operator: not empty
-                  id: cond_slot
-                  value: ''
-                  variable_selector:
-                    - node_extractor
-                    - slot_text
-                - comparison_operator: not empty
-                  id: cond_store
-                  value: ''
-                  variable_selector:
-                    - node_extractor
-                    - store
-              logical_operator: and
-          desc: 电话 + 意向时间 + 门店均非空时才提交预约
-          title: 信息是否齐全
-          type: if-else
-        id: node_ifelse
-        position:
-          x: 980
-          y: 282
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-
-      - data:
           authorization:
             config:
               api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
@@ -224,9 +180,11 @@ workflow:
               - id: json-body-booking
                 key: ''
                 type: text
-                value: '{"channel":"dify","phone":"{{#node_extractor.phone#}}","store":"{{#node_extractor.store#}}","service":"{{#node_extractor.service#}}","slot_text":"{{#node_extractor.slot_text#}}","color_summary":"{{#node_extractor.color_summary#}}","notes":"{{#node_llm.text#}}","status":"pending","idempotency_key":"{{#sys.conversation_id#}}"}'
+                value: '{"channel":"dify","conversation_id":"{{#sys.conversation_id#}}","phone":"{{#node_extractor.phone#}}","store":"{{#node_extractor.store#}}","service":"{{#node_extractor.service#}}","slot_text":"{{#node_extractor.slot_text#}}","color_summary":"{{#node_extractor.color_summary#}}","notes":"{{#node_llm.text#}}","status":"pending"}'
             type: json
-          desc: POST Salon gateway BookingDraft（结构化字段 + 幂等键 = conversation_id）
+          desc: |-
+            每轮都 POST；网关 BookingSessionStore 跨轮累积字段，
+            phone+store+slot_text 首次齐全时才写飞书（complete=true）。
           headers: 'Content-Type: application/json'
           method: post
           params: ''
@@ -245,25 +203,8 @@ workflow:
           variables: []
         id: node_http
         position:
-          x: 1280
-          y: 150
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-
-      - data:
-          answer: |-
-            {{#node_llm.text#}}
-
-            ✅ 预约已提交，等待确认。
-          desc: ''
-          title: 回复（已提交预约）
-          type: answer
-          variables: []
-        id: node_answer_booking
-        position:
-          x: 1580
-          y: 150
+          x: 980
+          y: 282
         sourcePosition: right
         targetPosition: left
         type: custom
@@ -271,13 +212,13 @@ workflow:
       - data:
           answer: '{{#node_llm.text#}}'
           desc: ''
-          title: 回复（收集信息中）
+          title: Answer
           type: answer
           variables: []
-        id: node_answer_chat
+        id: node_answer
         position:
           x: 1280
-          y: 420
+          y: 282
         sourcePosition: right
         targetPosition: left
         type: custom

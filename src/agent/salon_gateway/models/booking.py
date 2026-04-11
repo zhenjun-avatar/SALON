@@ -16,6 +16,10 @@ def _service_to_feishu_multi(value: str | list[str]) -> list[str]:
 class BookingDraft(BaseModel):
     """与 Dify HTTP 工具 /internal/booking 对齐；字段可按沙龙表结构扩展。"""
 
+    conversation_id: str | None = Field(
+        default=None,
+        description="Dify sys.conversation_id；用于跨轮次累积预约字段的会话键",
+    )
     idempotency_key: str | None = Field(default=None, description="防重，如企微 MsgId")
     channel: str = Field(default="wecom")
     external_user_id: str | None = None
