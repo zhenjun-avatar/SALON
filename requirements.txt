@@ -1,0 +1,12 @@
+# Python 3.11+ - minimal deps for src/agent/tools/vedio_split (+ core config / llm)
+pydantic>=2.4
+pydantic-settings>=2.0
+python-dotenv>=1.0
+langchain>=0.2.14
+langchain-core>=0.2
+langchain-openai>=0.1.22
+loguru>=0.7
+openai>=1.0
+
+# Local speech-to-text (ffmpeg/ffprobe must be on PATH)
+faster-whisper>=1.0.0

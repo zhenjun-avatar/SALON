@@ -1,0 +1,7 @@
+# Optional: WeCom + Dify + Feishu MVP gateway (pip -r this file or use pyproject optional salon-gateway)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27
+cryptography>=42.0.0
+wechatpy>=1.8.18
+xmltodict>=0.13
