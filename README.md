@@ -1,88 +1,64 @@
-# Video shorts pipeline (`video_split`)
+# Salon
 
-Upstream repository: **[zhenjun-avatar/VIDEO-SPLIT](https://github.com/zhenjun-avatar/VIDEO-SPLIT)** — clone URL: `https://github.com/zhenjun-avatar/VIDEO-SPLIT.git`.
+Repository: **[zhenjun-avatar/SALON](https://github.com/zhenjun-avatar/SALON)** — `https://github.com/zhenjun-avatar/SALON.git`.
 
-CLI pipeline that **transcribes** a video, uses an **LLM** to plan **10–100 second** clips (sessions / coherent paragraphs), **cuts** them with **ffmpeg**, and writes **titles + descriptions** plus a **manifest**.
+**Salon** is a small **FastAPI** gateway for a salon-style workflow: **企业微信** inbound messages → **Dify** chat (conversation continuity) → optional **飞书多维表** for booking drafts, plus a protected **internal booking** callback for Dify HTTP tools.
 
 ## What it does
 
-1. Extract audio → **faster-whisper** (with VAD) for timestamped segments.  
-2. Send a timeline to your configured chat model → JSON clip plan (`start_sec` / `end_sec`).  
-3. **ffmpeg** exports each segment (stream copy, with H.264/AAC fallback).  
-4. LLM generates **title** and **description** per clip.  
-5. Saves `clip_001.mp4`, …, `transcript.json`, `manifest.json` under the output directory.
+1. **WeCom**「接收消息」callback: verify URL, decrypt (or plaintext dev mode), parse text.  
+2. **Dify**: forwards user text, keeps `conversation_id` per WeCom user.  
+3. **Sink**: if Feishu credentials and field map are set, writes **BookingDraft** rows; otherwise logs only.  
+4. **POST `/internal/booking`**: enabled when `SALON_INTERNAL_BOOKING_TOKEN` is set; used by Dify tool calls.
 
 ## Layout
 
 ```
 ├── requirements.txt
-├── scripts/cleanup_non_video_split.py   # optional: prune legacy RAG/frontend paths
+├── requirements-salon-gateway.txt    # gateway-only deps (or pyproject [salon-gateway])
 ├── src/agent/
-│   ├── core/                 # pydantic-settings (shared with .env)
-│   ├── env.example           # API keys + DEFAULT_MODEL
-│   ├── tools/
-│   │   ├── video_split/      # pipeline, CLI
-│   │   ├── llm.py            # OpenAI-compatible providers (DeepSeek / Qwen / OpenAI)
-│   │   ├── runtime_logging.py
-│   │   └── data/             # e.g. sample input video
-│   └── outputs/              # default place for generated shorts (gitignored if listed)
+│   ├── core/                         # shared settings patterns (if used)
+│   ├── salon_gateway/
+│   │   ├── app.py                    # FastAPI routes
+│   │   ├── __main__.py               # uvicorn entry
+│   │   ├── config.py
+│   │   ├── env.example               # SALON_* template → copy to .env
+│   │   ├── ingress/wecom.py
+│   │   ├── ai/dify.py
+│   │   ├── orchestrator/pipeline.py
+│   │   └── sink/                     # Feishu bitable, logging sink
+│   └── .env                          # local secrets (do not commit)
+└── tests/
 ```
 
 ## Prerequisites
 
 - **Python 3.11+**  
-- **ffmpeg** and **ffprobe** on `PATH`  
-- **LLM API** credentials (see `src/agent/env.example`): e.g. `DEEPSEEK_API_KEY` + `DEFAULT_MODEL=deepseek/deepseek-chat`  
-- Optional: **CUDA** for faster-whisper (`--whisper-device cuda --whisper-compute-type float16`)
+- Dependencies: `pip install -r requirements-salon-gateway.txt` (from repo root), or install the `salon-gateway` optional extra from `pyproject.toml`.
 
 ## Quick start
 
 ```bash
 cd src/agent
-python -m venv venv
-venv\Scripts\pip install -r ../../requirements.txt
-# Unix: venv/bin/pip install -r ../../requirements.txt
+python -m venv .venv
+# Windows: .venv\Scripts\pip install -r ../../requirements-salon-gateway.txt
+# Unix:    .venv/bin/pip install -r ../../requirements-salon-gateway.txt
 
-copy env.example .env
-# Edit .env: at least DEFAULT_MODEL and the matching API key.
+copy salon_gateway\env.example .env
+# Edit .env: WeCom, Dify, optional Feishu and internal booking token.
 
-venv\Scripts\python -m tools.video_split --input tools/data/Duke.mp4 --out outputs/duke_shorts
+.venv\Scripts\python -m salon_gateway
+# Default bind: 0.0.0.0:8765 — override with SALON_HOST / SALON_PORT
 ```
-
-Use a smaller/faster Whisper model for tests: `--whisper-model tiny`. For quality: `--whisper-model small` or `medium`.
-
-## CLI options (summary)
-
-| Flag | Purpose |
-|------|--------|
-| `--input` / `-i` | Source video path |
-| `--out` / `-o` | Output directory |
-| `--whisper-model` | `tiny` / `base` / `small` / `medium` / `large-v3` |
-| `--whisper-device` | `cpu` or `cuda` |
-| `--whisper-compute-type` | e.g. `int8`, `float16` |
-| `--llm-model` | Override `DEFAULT_MODEL` for planning + metadata |
-| `--min-sec` / `--max-sec` | Clip length bounds (default 15–90) |
-| `--keep-wav` | Save extracted WAV next to pipeline |
 
 ## Configuration
 
-- **`src/agent/.env`** — loaded by `core.config` (used for logging and defaults). LLM keys are read by `tools/llm.py` from the environment (`DEEPSEEK_API_KEY`, `QWEN_API_KEY`, OpenAI default chain, etc.).  
+- **`src/agent/.env`**: see `src/agent/salon_gateway/env.example` for all `SALON_*` variables (WeCom token/AES key, Dify base URL and API key, Feishu app/table IDs, field map JSON, internal booking token).  
 - Do **not** commit `.env`.
-
-## Optional: repository cleanup script
-
-If this tree still contains leftover paths from the old RAG/frontend stack, inspect and then apply:
-
-```bash
-python scripts/cleanup_non_video_split.py
-python scripts/cleanup_non_video_split.py --apply
-```
-
-On Windows, if deleting `src/frontend` fails with **file in use**, stop `npm run dev` and close handles on `node_modules`, then retry (the script retries with chmod/backoff).
 
 ## Security
 
-Do not commit API keys or `.env`.
+Do not commit API keys, tokens, or `.env`.
 
 ## License
 
