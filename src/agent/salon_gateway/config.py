@@ -10,6 +10,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _AGENT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _strip_env_secret_wrapping(s: str) -> str:
+    """BOM/whitespace + optional outer matching quotes from .env paste mistakes."""
+    t = (s or "").strip().strip("\ufeff")
+    if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
+        t = t[1:-1].strip()
+    return t
+
+
 class SalonGatewaySettings(BaseSettings):
     """Loads `SALON_*` from环境变量与 `src/agent/.env`。"""
 
@@ -47,7 +55,7 @@ class SalonGatewaySettings(BaseSettings):
     # --- 内部：Dify HTTP 工具回调写预约 ---
     internal_booking_token: str = Field(
         default="",
-        description="Bearer / X-Salon-Token；为空则关闭 /internal/booking",
+        description="Bearer / X-Salon-Token；多个等价值用 | 分隔（Dify 与 .env 长度不一致时可各填一份）",
     )
 
     # --- 模拟企微文本（仅调试；生产勿设置）---
@@ -79,6 +87,19 @@ class SalonGatewaySettings(BaseSettings):
         return {str(k): v for k, v in data.items()}
 
     @property
+    def internal_booking_tokens_accepted(self) -> frozenset[str]:
+        """Any of these secrets accepts POST /internal/booking (after Bearer / X-Salon-Token parse)."""
+        raw = _strip_env_secret_wrapping(self.internal_booking_token)
+        if not raw:
+            return frozenset()
+        out: set[str] = set()
+        for part in raw.replace("\n", "|").split("|"):
+            p = _strip_env_secret_wrapping(part)
+            if p:
+                out.add(p)
+        return frozenset(out)
+
+    @property
     def feishu_field_map(self) -> dict[str, str]:
         raw = self.feishu_field_map_json.strip() or "{}"
         try:
@@ -86,6 +107,13 @@ class SalonGatewaySettings(BaseSettings):
         except json.JSONDecodeError:
             return {}
         return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+    @field_validator("internal_booking_token", mode="before")
+    @classmethod
+    def normalize_internal_booking_token(cls, v: object) -> str:
+        if v is None:
+            return ""
+        return _strip_env_secret_wrapping(str(v))
 
     @field_validator("feishu_bitable_table_id")
     @classmethod

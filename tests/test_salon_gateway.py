@@ -59,6 +59,11 @@ def test_feishu_table_id_strips_url_suffix() -> None:
     assert s.feishu_bitable_table_id == "tbl7kKyFKOd8vYDs"
 
 
+def test_internal_booking_tokens_pipe_and_quotes() -> None:
+    s = SalonGatewaySettings(internal_booking_token="  'a'|b  \n|c ")
+    assert s.internal_booking_tokens_accepted == frozenset({"a", "b", "c"})
+
+
 def test_booking_service_empty_omitted() -> None:
     assert BookingDraft(service="   ").to_feishu_fields({"service": "项目"}) == {}
     assert BookingDraft(service=[]).to_feishu_fields({"service": "项目"}) == {}

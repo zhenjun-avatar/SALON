@@ -84,17 +84,18 @@ def _auth_internal(
     authorization: str | None,
     x_salon_token: str | None,
 ) -> None:
-    expected = _normalize_secret(settings.internal_booking_token or "")
-    if not expected:
+    allowed = settings.internal_booking_tokens_accepted
+    if not allowed:
         raise HTTPException(status_code=404, detail="internal booking disabled")
     got = _bearer_or_header(authorization, x_salon_token)
-    if got != expected:
+    if got not in allowed:
+        lens = sorted({len(x) for x in allowed})
         logger.error(
-            "internal_booking unauthorized: has_authorization_header={} has_x_salon_token={} parsed_token_len={} expected_len={}",
+            "internal_booking unauthorized: has_authorization_header={} has_x_salon_token={} parsed_token_len={} accepted_token_lengths={}",
             bool(_normalize_secret(authorization or "")),
             bool(_normalize_secret(x_salon_token or "")),
             len(got),
-            len(expected),
+            lens,
         )
         raise HTTPException(status_code=401, detail="unauthorized")
 
