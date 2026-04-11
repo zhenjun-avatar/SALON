@@ -2,11 +2,11 @@
 
 Repository: **[zhenjun-avatar/SALON](https://github.com/zhenjun-avatar/SALON)** — `https://github.com/zhenjun-avatar/SALON.git`.
 
-**Salon** is a small **FastAPI** gateway for a salon-style workflow: **企业微信** inbound messages → **Dify** chat (conversation continuity) → optional **飞书多维表** for booking drafts, plus a protected **internal booking** callback for Dify HTTP tools.
+**Salon** is a small **FastAPI** gateway for a salon-style workflow: **WeCom (WeChat Work)** inbound messages → **Dify** chat (conversation continuity) → optional **Feishu Bitable** for booking drafts, plus a protected **internal booking** callback for Dify HTTP tools.
 
 ## What it does
 
-1. **WeCom**「接收消息」callback: verify URL, decrypt (or plaintext dev mode), parse text.  
+1. **WeCom** "receive message" callback: URL verification, decrypt (or plaintext dev mode), parse text.  
 2. **Dify**: forwards user text, keeps `conversation_id` per WeCom user.  
 3. **Sink**: if Feishu credentials and field map are set, writes **BookingDraft** rows; otherwise logs only.  
 4. **POST `/internal/booking`**: enabled when `SALON_INTERNAL_BOOKING_TOKEN` is set; used by Dify tool calls.
@@ -44,10 +44,16 @@ python -m venv .venv
 # Windows: .venv\Scripts\pip install -r ../../requirements-salon-gateway.txt
 # Unix:    .venv/bin/pip install -r ../../requirements-salon-gateway.txt
 
+# Windows:
 copy salon_gateway\env.example .env
-# Edit .env: WeCom, Dify, optional Feishu and internal booking token.
+# Unix:
+# cp salon_gateway/env.example .env
+# Edit .env: WeCom, Dify, optional Feishu, internal booking token.
 
+# Windows:
 .venv\Scripts\python -m salon_gateway
+# Unix:
+# .venv/bin/python -m salon_gateway
 # Default bind: 0.0.0.0:8765 — override with SALON_HOST / SALON_PORT
 ```
 
