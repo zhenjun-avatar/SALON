@@ -74,6 +74,13 @@ class DifyChatClient:
             payload["files"] = files
         headers = {"Authorization": f"Bearer {self._key}"}
 
+        logger.debug(
+            "dify chat-messages user={} cid={} files={}",
+            user,
+            conversation_id,
+            files,
+        )
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(url, json=payload, headers=headers)
             # Stale or invalid conversation_id often yields 400/404; retry once without it.
@@ -85,6 +92,8 @@ class DifyChatClient:
                 )
                 payload.pop("conversation_id", None)
                 r = await client.post(url, json=payload, headers=headers)
+            logger.debug("dify chat-messages response HTTP {} answer_len={}", r.status_code,
+                         len((r.json().get("answer") or "")) if not r.is_error else 0)
 
             if r.is_error:
                 r.raise_for_status()
