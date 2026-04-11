@@ -86,6 +86,16 @@ curl -sS -X POST "https://YOUR_DOMAIN/salon/simulate/wecom-text" \
   -d '{"content":"I want to book coloring next Saturday afternoon","from_user":"sim-user-1"}'
 ```
 
+From repo root (CLI; reads `SALON_SIMULATE_TOKEN` and optional `SALON_TEST_BASE_URL` from env / `src/agent/.env`):
+
+```bash
+python scripts/simulate_wecom.py 你好
+python scripts/simulate_wecom.py -m "下周六想染发" --from-user alice
+python scripts/simulate_wecom.py --json -m "hello"   # full JSON response
+python scripts/simulate_wecom.py --chat              # REPL: same user, continuous Dify session
+python scripts/simulate_wecom.py -c -m "我想预约"    # optional first message, then REPL
+```
+
 Response: `{"reply":"..."}` — the assistant text from Dify (blocking mode).
 
 Use a **stable `from_user`** per tester so `conversation_id` is reused across turns.
