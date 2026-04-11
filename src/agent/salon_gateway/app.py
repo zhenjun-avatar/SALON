@@ -249,19 +249,28 @@ async def simulate_wecom_text(
 @app.post("/simulate/upload-image")
 async def simulate_upload_image(
     file: Annotated[UploadFile, File(description="Image file to upload to Dify")],
+    from_user: str = Query(default="sim-user-1", description="Must match from_user in subsequent simulate call"),
     authorization: Annotated[str | None, Header()] = None,
     x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
 ) -> dict[str, str]:
-    """Upload an image to Dify /files/upload; returns upload_file_id for use in simulate."""
+    """Upload an image to Dify /files/upload; returns upload_file_id for use in simulate.
+
+    The upload_file_id is scoped to the Dify user that uploads it.  Pass the same
+    from_user here as in the subsequent POST /simulate/wecom-text call, otherwise
+    Dify silently drops the file and the LLM never sees the image.
+    """
     settings = get_settings()
     _auth_simulate(settings, authorization, x_salon_token)
+    # Build the same Dify user string that the pipeline / chat uses.
+    prefix = (settings.dify_user_prefix or "wecom").strip()
+    dify_user = f"{prefix}:{from_user.strip()}"
     content = await file.read()
     mime = file.content_type or "image/jpeg"
     fname = file.filename or "image.jpg"
     client = DifyChatClient(settings)
     try:
         fid = await client.upload_file_from_bytes(
-            user="simulate",
+            user=dify_user,
             filename=fname,
             content=content,
             mime_type=mime,
@@ -269,4 +278,4 @@ async def simulate_upload_image(
     except Exception as e:
         logger.exception("upload_file_from_bytes failed: {}", e)
         raise HTTPException(status_code=502, detail="dify upload failed") from e
-    return {"upload_file_id": fid, "filename": fname}
+    return {"upload_file_id": fid, "filename": fname, "dify_user": dify_user}

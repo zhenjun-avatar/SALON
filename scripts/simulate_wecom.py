@@ -25,6 +25,7 @@ import os
 import secrets
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -109,14 +110,19 @@ def _upload_image(
     base: str,
     token: str,
     path: Path,
+    from_user: str = "sim-user-1",
     timeout: float = 60.0,
 ) -> tuple[bool, str | None, str]:
-    """Upload local image to /simulate/upload-image; returns (ok, upload_file_id, error)."""
+    """Upload local image to /simulate/upload-image; returns (ok, upload_file_id, error).
+
+    from_user must match the from_user used in the subsequent wecom-text call so that
+    Dify scopes the upload_file_id to the same user.
+    """
     content = path.read_bytes()
     mime = mimetypes.guess_type(str(path))[0] or "image/jpeg"
     body, content_type = _multipart_encode({}, {"file": (path.name, content, mime)})
     req = urllib.request.Request(
-        f"{base}/simulate/upload-image",
+        f"{base}/simulate/upload-image?from_user={urllib.parse.quote(from_user)}",
         data=body,
         method="POST",
         headers={"Content-Type": content_type, "Authorization": f"Bearer {token}"},
@@ -188,9 +194,13 @@ def _post_simulate(
 
 
 def _resolve_image(
-    base: str, token: str, image_arg: str | None
+    base: str, token: str, image_arg: str | None, from_user: str = "sim-user-1"
 ) -> tuple[str | None, str | None, str | None]:
-    """Return (image_url, upload_file_id, error).  Uploads local file if needed."""
+    """Return (image_url, upload_file_id, error).  Uploads local file if needed.
+
+    from_user must match the from_user used in the subsequent chat call so Dify
+    associates the uploaded file with the correct user session.
+    """
     if not image_arg:
         return None, None, None
     if image_arg.startswith("http://") or image_arg.startswith("https://"):
@@ -198,7 +208,7 @@ def _resolve_image(
     p = Path(image_arg).expanduser().resolve()
     if not p.is_file():
         return None, None, f"image file not found: {p}"
-    ok, fid, err = _upload_image(base, token, p)
+    ok, fid, err = _upload_image(base, token, p, from_user=from_user)
     if not ok:
         return None, None, f"upload failed: {err}"
     print(f"[image] uploaded → upload_file_id={fid}", file=sys.stderr)
@@ -273,7 +283,7 @@ def _run_chat_loop(
             break
         if low.startswith("/image "):
             img_arg = text[7:].strip()
-            iu, fid, err = _resolve_image(base, token, img_arg)
+            iu, fid, err = _resolve_image(base, token, img_arg, from_user=from_user)
             if err:
                 print(f"[image] error: {err}", file=sys.stderr)
             else:
@@ -343,7 +353,7 @@ def main() -> int:
     text = (args.message if args.message is not None else " ".join(args.words)).strip()
 
     # Resolve image once (upload local file if needed)
-    img_url, upload_file_id, img_err = _resolve_image(base, token, args.image)
+    img_url, upload_file_id, img_err = _resolve_image(base, token, args.image, from_user=args.from_user)
     if img_err:
         print(f"image error: {img_err}", file=sys.stderr)
         return 1
