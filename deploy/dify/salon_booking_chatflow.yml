@@ -32,7 +32,13 @@ workflow:
   conversation_variables: []
   environment_variables: []
   features:
-    file_upload: {}
+    file_upload:
+      image:
+        enabled: true
+        number_limits: 3
+        transfer_methods:
+          - remote_url
+          - local_file
     opening_statement: ''
     retriever_resource:
       enabled: true
@@ -107,11 +113,13 @@ workflow:
                 若用户想预约，引导收集：联系电话、门店、服务项目、意向时间。
                 不要回复「我是 AI 无法预约」。
                 当你判断已收集到电话+门店+时间时，在回复中告知用户"预约已提交，等待确认"。
+                若用户发送了照片（本人照片或参照案例），请仔细分析图片，结合发质、脸型、当前发色等，
+                推荐 2-3 个具体的发型或染发方案（包括发色名称、参考色号、造型建议），语气专业且亲切。
           title: LLM
           type: llm
           variables: []
           vision:
-            enabled: false
+            enabled: true
         id: node_llm
         position:
           x: 380
@@ -127,6 +135,9 @@ workflow:
             未出现的字段返回空字符串。
           memory:
             enabled: false
+            window:
+              enabled: false
+              size: 10
           model:
             completion_params:
               temperature: 0.2

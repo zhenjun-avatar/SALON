@@ -23,12 +23,39 @@ class DifyChatClient:
             snippet = "<no body>"
         logger.error("dify POST {} HTTP {}: {}", r.request.url, r.status_code, snippet)
 
+    async def upload_file_from_bytes(
+        self,
+        *,
+        user: str,
+        filename: str,
+        content: bytes,
+        mime_type: str = "image/jpeg",
+    ) -> str:
+        """Upload image bytes to Dify /files/upload; return upload_file_id."""
+        if not self._key:
+            raise RuntimeError("Dify API key not configured")
+        url = f"{self._base}/files/upload"
+        headers = {"Authorization": f"Bearer {self._key}"}
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.post(
+                url,
+                files={"file": (filename, content, mime_type)},
+                data={"user": user},
+                headers=headers,
+            )
+            r.raise_for_status()
+            fid = r.json().get("id")
+            if not fid:
+                raise RuntimeError(f"Dify files/upload returned no id: {r.text[:200]}")
+            return str(fid)
+
     async def complete(
         self,
         *,
         user: str,
         query: str,
         conversation_id: str | None,
+        files: list[dict[str, Any]] | None = None,
         inputs: dict[str, Any] | None = None,
     ) -> tuple[str, str | None]:
         if not self._key:
@@ -43,6 +70,8 @@ class DifyChatClient:
         }
         if conversation_id:
             payload["conversation_id"] = conversation_id
+        if files:
+            payload["files"] = files
         headers = {"Authorization": f"Bearer {self._key}"}
 
         async with httpx.AsyncClient(timeout=120.0) as client:

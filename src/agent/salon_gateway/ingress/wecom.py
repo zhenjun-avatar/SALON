@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from wechatpy.enterprise.crypto import WeChatCrypto
 from wechatpy.exceptions import InvalidSignatureException
 
-from salon_gateway.models.messages import WecomTextInbound
+from salon_gateway.models.messages import WecomImageInbound, WecomTextInbound
 
 if TYPE_CHECKING:
     from salon_gateway.config import SalonGatewaySettings
@@ -26,22 +26,38 @@ def parse_sender_recipient(xml_str: str) -> tuple[str | None, str | None]:
     return _t(root, "FromUserName"), _t(root, "ToUserName")
 
 
-def parse_inbound_message(xml_str: str) -> WecomTextInbound | None:
+def parse_inbound_message(xml_str: str) -> WecomTextInbound | WecomImageInbound | None:
     root = ET.fromstring(xml_str)
-    if _t(root, "MsgType") != "text":
-        return None
-    content = _t(root, "Content") or ""
+    msg_type = _t(root, "MsgType")
     from_user = _t(root, "FromUserName") or ""
     to_user = _t(root, "ToUserName") or ""
     agent_id = _t(root, "AgentID")
     msg_id = _t(root, "MsgId")
-    return WecomTextInbound(
-        from_user=from_user,
-        to_user=to_user,
-        agent_id=agent_id,
-        msg_id=msg_id,
-        content=content,
-    )
+
+    if msg_type == "text":
+        return WecomTextInbound(
+            from_user=from_user,
+            to_user=to_user,
+            agent_id=agent_id,
+            msg_id=msg_id,
+            content=_t(root, "Content") or "",
+        )
+
+    if msg_type == "image":
+        pic_url = _t(root, "PicUrl") or ""
+        media_id = _t(root, "MediaId") or ""
+        if not pic_url:
+            return None
+        return WecomImageInbound(
+            from_user=from_user,
+            to_user=to_user,
+            agent_id=agent_id,
+            msg_id=msg_id,
+            pic_url=pic_url,
+            media_id=media_id,
+        )
+
+    return None
 
 
 def render_text_reply(to_user: str, from_user: str, content: str) -> str:

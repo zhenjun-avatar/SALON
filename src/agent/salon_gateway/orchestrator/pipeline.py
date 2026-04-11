@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from loguru import logger
@@ -8,10 +8,18 @@ from loguru import logger
 from salon_gateway.ai.dify import DifyChatClient
 from salon_gateway.ai.store import ConversationStore
 from salon_gateway.config import SalonGatewaySettings
-from salon_gateway.ingress.wecom import WecomTextInbound
+from salon_gateway.models.messages import WecomImageInbound, WecomTextInbound
 
 if TYPE_CHECKING:
     from salon_gateway.ai.protocol import ChatClient
+
+
+def _remote_url_file(url: str) -> dict[str, Any]:
+    return {"type": "image", "transfer_method": "remote_url", "url": url}
+
+
+def _upload_file_ref(upload_file_id: str) -> dict[str, Any]:
+    return {"type": "image", "transfer_method": "local_file", "upload_file_id": upload_file_id}
 
 
 class SalonPipeline:
@@ -29,14 +37,20 @@ class SalonPipeline:
         p = self._s.dify_user_prefix.strip() or "wecom"
         return f"{p}:{wecom_user}"
 
-    async def handle_text(self, msg: WecomTextInbound) -> str:
-        user = self._dify_user(msg.from_user)
+    async def _complete(
+        self,
+        wecom_user: str,
+        query: str,
+        files: list[dict[str, Any]] | None = None,
+    ) -> str:
+        user = self._dify_user(wecom_user)
         cid = await self._store.get(user)
         try:
             answer, new_cid = await self._chat.complete(
                 user=user,
-                query=msg.content,
+                query=query,
                 conversation_id=cid,
+                files=files,
             )
         except httpx.HTTPStatusError as e:
             try:
@@ -55,6 +69,40 @@ class SalonPipeline:
         if new_cid:
             await self._store.set(user, new_cid)
         return answer or "（无回复）"
+
+    async def handle_text(self, msg: WecomTextInbound) -> str:
+        return await self._complete(msg.from_user, msg.content)
+
+    async def handle_image(self, msg: WecomImageInbound) -> str:
+        """Forward image to Dify as remote_url; LLM analyses it and recommends styling."""
+        files = [_remote_url_file(msg.pic_url)]
+        return await self._complete(
+            msg.from_user,
+            query="[图片] 请分析这张照片，推荐适合的发型或发色方案。",
+            files=files,
+        )
+
+    async def handle_message(self, msg: WecomTextInbound | WecomImageInbound) -> str:
+        if isinstance(msg, WecomImageInbound):
+            return await self.handle_image(msg)
+        return await self.handle_text(msg)
+
+    async def handle_with_image(
+        self,
+        wecom_user: str,
+        content: str,
+        *,
+        image_url: str | None = None,
+        upload_file_id: str | None = None,
+    ) -> str:
+        """Used by /simulate endpoint: text + optional image."""
+        files: list[dict[str, Any]] | None = None
+        if upload_file_id:
+            files = [_upload_file_ref(upload_file_id)]
+        elif image_url:
+            files = [_remote_url_file(image_url)]
+        query = content or "[图片] 请分析这张照片，推荐适合的发型或发色方案。"
+        return await self._complete(wecom_user, query, files)
 
 
 def default_pipeline(settings: SalonGatewaySettings) -> SalonPipeline:

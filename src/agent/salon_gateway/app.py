@@ -5,10 +5,11 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import PlainTextResponse
 from loguru import logger
 
+from salon_gateway.ai.dify import DifyChatClient
 from salon_gateway.booking.idempotency import IdempotencyCache
 from salon_gateway.booking.session import BookingSessionStore
 from salon_gateway.config import SalonGatewaySettings, get_settings
@@ -19,7 +20,7 @@ from salon_gateway.ingress.wecom import (
     render_text_reply,
 )
 from salon_gateway.models.booking import BookingDraft
-from salon_gateway.models.messages import WecomTextInbound
+from salon_gateway.models.messages import WecomImageInbound, WecomTextInbound
 from salon_gateway.models.simulate import SimulateWecomTextIn
 from salon_gateway.orchestrator.pipeline import SalonPipeline, default_pipeline
 from salon_gateway.sink.feishu import FeishuBitableSink
@@ -174,13 +175,13 @@ async def wecom_message(
         fu, tu = parse_sender_recipient(inner_xml)
         if not fu or not tu:
             return PlainTextResponse(content="success", media_type="text/plain")
-        tip = "目前仅支持文字咨询，请直接发送您的问题或需求。"
+        tip = "目前仅支持文字和图片咨询，请直接发送您的问题或照片。"
         reply = render_text_reply(to_user=fu, from_user=tu, content=tip)
         out = wecom.encrypt_reply(reply)
         return PlainTextResponse(content=out, media_type="application/xml; charset=utf-8")
 
     pipe = _get_pipeline(settings)
-    text = await pipe.handle_text(msg)
+    text = await pipe.handle_message(msg)
     reply = render_text_reply(to_user=msg.from_user, from_user=msg.to_user, content=text)
     out = wecom.encrypt_reply(reply)
     return PlainTextResponse(content=out, media_type="application/xml; charset=utf-8")
@@ -232,16 +233,40 @@ async def simulate_wecom_text(
     authorization: Annotated[str | None, Header()] = None,
     x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
 ) -> dict[str, str]:
-    """Same pipeline as WeCom text → Dify; JSON in/out for local / Chatflow testing."""
+    """Same pipeline as WeCom → Dify; supports optional image (image_url / upload_file_id)."""
     settings = get_settings()
     _auth_simulate(settings, authorization, x_salon_token)
-    msg = WecomTextInbound(
-        from_user=body.from_user.strip(),
-        to_user=body.to_user.strip(),
-        agent_id=None,
-        msg_id=body.msg_id,
-        content=body.content,
-    )
     pipe = _get_pipeline(settings)
-    reply = await pipe.handle_text(msg)
+    reply = await pipe.handle_with_image(
+        body.from_user.strip(),
+        body.content,
+        image_url=body.image_url,
+        upload_file_id=body.upload_file_id,
+    )
     return {"reply": reply}
+
+
+@app.post("/simulate/upload-image")
+async def simulate_upload_image(
+    file: Annotated[UploadFile, File(description="Image file to upload to Dify")],
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> dict[str, str]:
+    """Upload an image to Dify /files/upload; returns upload_file_id for use in simulate."""
+    settings = get_settings()
+    _auth_simulate(settings, authorization, x_salon_token)
+    content = await file.read()
+    mime = file.content_type or "image/jpeg"
+    fname = file.filename or "image.jpg"
+    client = DifyChatClient(settings)
+    try:
+        fid = await client.upload_file_from_bytes(
+            user="simulate",
+            filename=fname,
+            content=content,
+            mime_type=mime,
+        )
+    except Exception as e:
+        logger.exception("upload_file_from_bytes failed: {}", e)
+        raise HTTPException(status_code=502, detail="dify upload failed") from e
+    return {"upload_file_id": fid, "filename": fname}
