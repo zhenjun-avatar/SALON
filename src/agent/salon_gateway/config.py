@@ -73,6 +73,13 @@ class SalonGatewaySettings(BaseSettings):
         default="wanx2.1-imageedit",
         description="通义万相图像编辑模型名称",
     )
+    dashscope_base_url: str = Field(
+        default="https://dashscope.aliyuncs.com/api/v1",
+        description=(
+            "DashScope 原生 API 根；国内账号用 https://dashscope.aliyuncs.com/api/v1，"
+            "国际站账号用 https://dashscope-intl.aliyuncs.com/api/v1"
+        ),
+    )
 
     @field_validator("dashscope_api_key", mode="before")
     @classmethod

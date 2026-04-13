@@ -23,7 +23,7 @@ def _key_fingerprint(key: str) -> str:
     """SHA-256 前 12 字符，便于与 DashScope 控制台 Key 比对（不暴露原值）。"""
     return hashlib.sha256(key.encode()).hexdigest()[:12]
 
-_BASE = "https://dashscope.aliyuncs.com/api/v1"
+_DEFAULT_BASE = "https://dashscope.aliyuncs.com/api/v1"
 _GENERATION_PATH = "/services/aigc/image2image/image-synthesis"
 _TASK_PATH = "/tasks/{task_id}"
 
@@ -40,9 +40,15 @@ class HairstyleResult:
 class WanxiangClient:
     """通义万相图像编辑（img2img）异步客户端，仅依赖 httpx。"""
 
-    def __init__(self, api_key: str, model: str = "wanx2.1-imageedit") -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "wanx2.1-imageedit",
+        base_url: str = _DEFAULT_BASE,
+    ) -> None:
         self._api_key = api_key
         self._model = model
+        self._base = base_url.rstrip("/")
 
     async def generate_hairstyle(self, image_url: str, style_prompt: str) -> HairstyleResult:
         """提交发型重绘任务，轮询至完成，返回效果图 URL。"""
@@ -69,7 +75,7 @@ class WanxiangClient:
         }
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                f"{_BASE}{_GENERATION_PATH}",
+                f"{self._base}{_GENERATION_PATH}",
                 headers=headers,
                 json=payload,
             )
@@ -90,7 +96,7 @@ class WanxiangClient:
 
     async def _poll(self, task_id: str) -> str:
         headers = {"Authorization": f"Bearer {self._api_key}"}
-        url = f"{_BASE}{_TASK_PATH.format(task_id=task_id)}"
+        url = f"{self._base}{_TASK_PATH.format(task_id=task_id)}"
 
         async with httpx.AsyncClient(timeout=30) as client:
             for attempt in range(1, _MAX_POLLS + 1):

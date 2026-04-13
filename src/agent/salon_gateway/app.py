@@ -168,7 +168,7 @@ async def hairstyle_diag(
         "dashscope_key_len": len(key),
         "dashscope_key_sha256_12": _hashlib.sha256(key.encode()).hexdigest()[:12] if key else "",
         "wanxiang_model": settings.wanxiang_model,
-        "dashscope_base": "https://dashscope.aliyuncs.com/api/v1",
+        "dashscope_base": settings.dashscope_base_url,
     }
     if not key:
         return {**info, "status": "error", "detail": "SALON_DASHSCOPE_API_KEY not set"}
@@ -317,7 +317,11 @@ async def internal_hairstyle_preview(
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
-    client = WanxiangClient(settings.dashscope_api_key, settings.wanxiang_model)
+    client = WanxiangClient(
+        settings.dashscope_api_key,
+        settings.wanxiang_model,
+        settings.dashscope_base_url,
+    )
     try:
         result = await client.generate_hairstyle(base_image, style_prompt)
     except TimeoutError as e:
