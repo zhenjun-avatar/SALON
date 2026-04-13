@@ -258,10 +258,14 @@ async def internal_booking(
     )
     _auth_internal(settings, authorization, x_salon_token)
 
+    # 存储本轮图片 URL，供后续轮次发型效果图生成使用（image_url 非空时才更新）
+    cid = (draft.conversation_id or "").strip()
+    if cid and draft.image_url:
+        _hairstyle_sessions.save(cid, draft.image_url)
+
     # Session-based accumulation: merge fields from this turn into the
     # conversation session.  Only write to Feishu the first time all required
     # fields (phone + slot_text + store) are present.
-    cid = (draft.conversation_id or "").strip()
     if cid:
         merged, newly_complete = _booking_sessions.merge_and_check(cid, draft)
         if not newly_complete:

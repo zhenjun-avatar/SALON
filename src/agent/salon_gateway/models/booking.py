@@ -34,10 +34,15 @@ class BookingDraft(BaseModel):
     history_summary: str | None = None
     notes: str | None = None
     status: str = Field(default="pending")
+    image_url: str | None = Field(
+        default=None,
+        description="本轮用户上传的图片 URL（不写飞书；网关用于跨轮次发型效果图生成）",
+    )
 
     @field_validator(
         "phone", "store", "service", "slot_text",
         "color_summary", "history_summary", "notes", "external_user_id",
+        "image_url",
         mode="before",
     )
     @classmethod

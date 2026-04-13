@@ -292,7 +292,7 @@ workflow:
               - id: json-body-booking
                 key: ''
                 type: text
-                value: '{"channel":"dify","conversation_id":"{{#sys.conversation_id#}}","phone":"{{#node_extractor.phone#}}","store":"{{#node_extractor.store#}}","service":"{{#node_extractor.service#}}","slot_text":"{{#node_extractor.slot_text#}}","color_summary":"{{#node_extractor.color_summary#}}","notes":"{{#node_llm.text#}}","status":"pending"}'
+                value: '{"channel":"dify","conversation_id":"{{#sys.conversation_id#}}","phone":"{{#node_extractor.phone#}}","store":"{{#node_extractor.store#}}","service":"{{#node_extractor.service#}}","slot_text":"{{#node_extractor.slot_text#}}","color_summary":"{{#node_extractor.color_summary#}}","notes":"{{#node_llm.text#}}","status":"pending","image_url":"{{#node_code_extract.image_url#}}"}'
             type: json
           desc: 每轮都 POST；网关跨轮累积，phone+store+slot_text 首次齐全才写飞书。
           headers: 'Content-Type: application/json'
