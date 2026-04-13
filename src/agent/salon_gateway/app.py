@@ -10,6 +10,7 @@ from fastapi.responses import PlainTextResponse
 from loguru import logger
 
 from salon_gateway.ai.dify import DifyChatClient
+from salon_gateway.booking.hairstyle_session import HairstyleSessionStore
 from salon_gateway.booking.idempotency import IdempotencyCache
 from salon_gateway.booking.session import BookingSessionStore
 from salon_gateway.config import SalonGatewaySettings, get_settings
@@ -34,6 +35,7 @@ _pipeline: SalonPipeline | None = None
 _sink: FeishuBitableSink | LoggingSink | None = None
 _idempotency = IdempotencyCache()
 _booking_sessions = BookingSessionStore()
+_hairstyle_sessions = HairstyleSessionStore()
 
 import hashlib as _hashlib
 
@@ -301,17 +303,22 @@ async def internal_hairstyle_preview(
             status_code=503,
             detail="hairstyle preview disabled: set SALON_DASHSCOPE_API_KEY to enable",
         )
-    if not body.image_url:
-        raise HTTPException(status_code=400, detail="image_url is required")
-
     style_prompt = (body.style_prompt or "").strip() or _DEFAULT_HAIR_STYLE_PROMPT
     logger.info(
         "hairstyle_preview: conversation_id={} style_prompt={!r}",
         body.conversation_id or "(none)",
         style_prompt[:80],
     )
+    # 解析有效图片 URL：当前轮提供则存入 session；否则从 session 取上一轮的
+    effective_url = _hairstyle_sessions.resolve(body.conversation_id, body.image_url)
+    if not effective_url:
+        raise HTTPException(
+            status_code=400,
+            detail="image_url is required (no image in current or previous turns of this conversation)",
+        )
+
     try:
-        base_image = await resolve_base_image_for_dashscope(body.image_url, settings)
+        base_image = await resolve_base_image_for_dashscope(effective_url, settings)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except RuntimeError as e:

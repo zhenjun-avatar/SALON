@@ -1,43 +1,38 @@
-# Dify DSL — Salon Chatflow v4
+# Dify DSL — Salon Chatflow v5
 #
-# 新功能（v4）：发型效果图生成
-# ─────────────────────────────
-# 用户上传照片后，流程在提交预约之后额外生成发型效果图：
-#   1. Code 节点（提取图片URL）：从 sys.files 取出首张图片的访问 URL。
-#   2. Extractor 提取 service / color_summary，作为发型描述传给生成 API。
-#   3. 提交预约（同 v3，先于图像生成，确保预约不因图像超时而丢失）。
-#   4. IF-ELSE：检查 code 节点是否拿到了图片 URL。
-#      ├─ 有图 → HTTP 调 /internal/hairstyle-preview（通义万相，约 10–30s）
-#      │         → Answer（LLM 文字 + 效果图 Markdown）
-#      └─ 无图 → Answer（仅 LLM 文字，同 v3）
+# 核心变化（v5）：两步式发型效果图
+# ─────────────────────────────────
+# v4 只要有图就立刻生成效果图；v5 改为：
+#   Turn 1：用户上传照片 → LLM 给出编号方案（方案一/二/三），询问「您想看哪个方案的效果图？」
+#   Turn 2：用户确认（如"方案二"/"就第一个"） → 严格按该方案生成效果图
 #
-# 注意：
-#   • image_url 必须是 DashScope 可公开拉取的 HTTPS URL。
-#     若 Dify 文件来自 remote_url 上传（外部 URL），直接可用；
-#     若来自 local_file 上传（Dify 内部存储），需先转存至 OSS。
-#   • Dify「生成效果图」HTTP 节点 read_timeout 须 ≥ 90s（通义万相生成耗时）。
-#   • 后端须配置 SALON_DASHSCOPE_API_KEY；未配置则该端点返回 503，
-#     Dify 报 HTTP 错误，效果图分支失败但预约已提交（不影响主流程）。
+# 图片跨轮存储：由后端 HairstyleSessionStore 负责（按 conversation_id 缓存 1 小时）。
+#   Turn 1：Dify 传入 image_url → 网关自动存入 session
+#   Turn 2：Dify 传入 image_url=""（用户未再上传图）→ 网关从 session 取出上一轮的图片
+#   因此 DSL 无需 Dify 会话变量，导入兼容性更好。
 #
-# 架构原则（继承自 v3）
-# ─────────────────────
-# Dify 无状态：参数提取节点每次只看「当前用户消息」。
-# 状态管理在后端 BookingSessionStore；phone+store+slot_text 首次齐全才写飞书。
+# 流程：
+#   Start → LLM(Vision) → Code(提取当前图片URL) → Extractor(预约参数+confirmed_style)
+#         → 提交预约
+#         → IF-ELSE: confirmed_style 非空?
+#              ├─ YES → HTTP(hairstyle-preview，image_url 可为空，网关从 session 补全)
+#              │         → Code(解析JSON) → Answer(文字 + 效果图链接)
+#              └─ NO  → Answer(文字)
 #
 # 导入后必做：
 # 1) 「LLM」节点选 Vision 模型（如 qwen-vl-plus）。
-# 2) 「提取预约参数」节点可选 deepseek-chat 等纯文本模型（省成本）。
-# 3) 「提交预约」和「生成效果图」HTTP 节点 → 鉴权 Bearer → 填 SALON_INTERNAL_BOOKING_TOKEN。
+# 2) 「提取预约参数」节点选支持 function-calling 的模型（需识别确认意图）。
+# 3) 「提交预约」和「生成效果图」HTTP 节点 → Bearer → 填 SALON_INTERNAL_BOOKING_TOKEN。
 # 4) 「生成效果图」HTTP 节点 → 超时设置 → read timeout 改为 90s。
 # 5) 若网关不在默认域名，改 URL。
 # 6) 发布。
 
 app:
-  description: Salon WeCom gateway v4 — booking + hairstyle preview
+  description: Salon WeCom gateway v5 — two-step hairstyle preview
   icon: 💇
   icon_background: '#FFEAD5'
   mode: advanced-chat
-  name: Salon 预约客服 v4
+  name: Salon 预约客服 v5
   use_icon_as_answer_icon: false
 dependencies: []
 kind: app
@@ -69,18 +64,17 @@ workflow:
       voice: ''
   graph:
     edges:
-      # ── 主干 ──────────────────────────────────────────────────────────
       - id: start-llm
         source: node_start
         sourceHandle: source
         target: node_llm
         targetHandle: target
-      - id: llm-code
+      - id: llm-code-extract
         source: node_llm
         sourceHandle: source
         target: node_code_extract
         targetHandle: target
-      - id: code-extractor
+      - id: code-extract-extractor
         source: node_code_extract
         sourceHandle: source
         target: node_extractor
@@ -93,22 +87,25 @@ workflow:
       - id: booking-ifelse
         source: node_http_booking
         sourceHandle: source
-        target: node_ifelse_has_image
+        target: node_ifelse_confirmed
         targetHandle: target
-      # ── 有图分支（true）───────────────────────────────────────────────
       - id: ifelse-hairstyle
-        source: node_ifelse_has_image
-        sourceHandle: has_image
+        source: node_ifelse_confirmed
+        sourceHandle: confirmed
         target: node_http_hairstyle
         targetHandle: target
-      - id: hairstyle-answer-img
+      - id: hairstyle-parse
         source: node_http_hairstyle
+        sourceHandle: source
+        target: node_code_parse_preview
+        targetHandle: target
+      - id: parse-answer-img
+        source: node_code_parse_preview
         sourceHandle: source
         target: node_answer_img
         targetHandle: target
-      # ── 无图分支（false）──────────────────────────────────────────────
       - id: ifelse-answer-text
-        source: node_ifelse_has_image
+        source: node_ifelse_confirmed
         sourceHandle: 'false'
         target: node_answer_text
         targetHandle: target
@@ -153,9 +150,20 @@ workflow:
                 若用户想预约，引导收集：联系电话、门店、服务项目、意向时间。
                 不要回复「我是 AI 无法预约」。
                 当你判断已收集到电话+门店+时间时，在回复中告知用户"预约已提交，等待确认"。
-                若用户发送了照片（本人照片或参照案例），请仔细分析图片，结合发质、脸型、当前发色等，
-                推荐 2-3 个具体的发型或染发方案（包括发色名称、参考色号、造型建议），语气专业且亲切。
-                若用户上传了本人照片并明确希望看效果图，告知用户"正在为您生成发型效果图，请稍候…"。
+
+                【发型效果图——两步式，请严格遵守】
+
+                第一步：用户上传本人照片后，分析发质、脸型、当前发色，
+                给出编号方案（每条含：发型名称、发色+色号、造型建议、适合理由），格式：
+                  方案一：…
+                  方案二：…
+                  方案三：…
+                最后询问：「您想看哪个方案的效果图呢？」
+                ⚠ 本轮只给文字方案，不说"正在生成图片"。
+
+                第二步：用户确认选择后（如"方案一"、"就第二个"、"帮我做栗色那个"），
+                回复：「好的！正在为您按照[方案完整描述]生成效果图，请稍候约10秒……」
+                ⚠ 不要再列出所有方案，只确认用户选的那个。
             - role: user
               selected: true
               text: "{{#sys.query#}}\n{{#sys.files#}}"
@@ -172,7 +180,7 @@ workflow:
         targetPosition: left
         type: custom
 
-      # ── Code：提取首张图片 URL ──────────────────────────────────────
+      # ── Code：提取当前轮图片 URL ─────────────────────────────────────
       - data:
           code: |
             def main(files: list) -> dict:
@@ -182,12 +190,12 @@ workflow:
                         return {"image_url": url}
                 return {"image_url": ""}
           code_language: python3
-          desc: 从 sys.files 提取首张图片的可访问 URL（无图时返回空字符串）
+          desc: 从 sys.files 提取当前轮首张图片 URL（无图时返回空字符串，网关从 session 补全）
           outputs:
             image_url:
-              description: 首张图片的 URL，无图时为空字符串
+              description: 当前轮图片 URL，无图时为空字符串
               type: string
-          title: 提取图片URL
+          title: 提取当前图片URL
           type: code
           variables:
             - label: files
@@ -205,15 +213,25 @@ workflow:
 
       # ── Parameter Extractor ──────────────────────────────────────────
       - data:
-          desc: 从当前用户消息提取本轮新增的预约字段（网关负责跨轮累积）
+          desc: 提取预约字段；结合对话历史识别用户确认的发型方案（confirmed_style）
           instruction: |-
-            从当前用户输入中提取预约相关字段。只提取本条消息中明确出现的信息；
-            未出现的字段返回空字符串。
+            从当前用户输入和最近对话历史中提取以下字段：
+
+            【预约字段】（仅从当前消息提取，未出现返回空字符串）：
+            phone、store、slot_text、service、color_summary
+
+            【confirmed_style】（结合对话历史判断）：
+            - 若用户当前消息明确选择/确认了某个具体发型方案
+              （如"就方案一"、"帮我做那个栗色的"、"第二个可以"、"选方案三"），
+              从对话历史中找出该方案的完整描述（发型名称+发色+具体细节），填入 confirmed_style。
+              示例：「波浪卷发，奶茶栗色渐变 8N→5N，中长发」
+            - 若用户是首次上传照片、询问建议、或聊其他话题，confirmed_style 返回空字符串。
+            - 只在用户明确表达确认意图时填写，不要猜测。
           memory:
-            enabled: false
+            enabled: true
             window:
-              enabled: false
-              size: 10
+              enabled: true
+              size: 6
           model:
             completion_params:
               temperature: 0.2
@@ -239,6 +257,12 @@ workflow:
               type: string
             - description: 发色方案要求（如 黄色、黑色渐变）
               name: color_summary
+              required: false
+              type: string
+            - description: |-
+                用户确认的完整发型方案描述（如「波浪卷发，栗色奶茶渐变 8N/5N，中长」）。
+                仅在用户明确选择某方案时填写；否则返回空字符串。
+              name: confirmed_style
               required: false
               type: string
           query:
@@ -270,9 +294,7 @@ workflow:
                 type: text
                 value: '{"channel":"dify","conversation_id":"{{#sys.conversation_id#}}","phone":"{{#node_extractor.phone#}}","store":"{{#node_extractor.store#}}","service":"{{#node_extractor.service#}}","slot_text":"{{#node_extractor.slot_text#}}","color_summary":"{{#node_extractor.color_summary#}}","notes":"{{#node_llm.text#}}","status":"pending"}'
             type: json
-          desc: |-
-            每轮都 POST；网关 BookingSessionStore 跨轮累积字段，
-            phone+store+slot_text 首次齐全时才写飞书（complete=true）。
+          desc: 每轮都 POST；网关跨轮累积，phone+store+slot_text 首次齐全才写飞书。
           headers: 'Content-Type: application/json'
           method: post
           params: ''
@@ -297,20 +319,20 @@ workflow:
         targetPosition: left
         type: custom
 
-      # ── IF-ELSE：是否有图片 ──────────────────────────────────────────
+      # ── IF-ELSE：用户是否已确认方案 ─────────────────────────────────
       - data:
           cases:
-            - case_id: has_image
+            - case_id: confirmed
               conditions:
                 - comparison_operator: not empty
                   variable_selector:
-                    - node_code_extract
-                    - image_url
+                    - node_extractor
+                    - confirmed_style
               logical_operator: and
-          desc: ''
-          title: 是否有图片
+          desc: confirmed_style 非空则生成效果图；否则只回文字
+          title: 已确认方案?
           type: if-else
-        id: node_ifelse_has_image
+        id: node_ifelse_confirmed
         position:
           x: 1180
           y: 300
@@ -318,7 +340,7 @@ workflow:
         targetPosition: left
         type: custom
 
-      # ── HTTP：生成发型效果图（有图分支）────────────────────────────
+      # ── HTTP：生成发型效果图（确认分支）─────────────────────────────
       - data:
           authorization:
             config:
@@ -331,12 +353,12 @@ workflow:
               - id: json-body-hairstyle
                 key: ''
                 type: text
-                value: '{"image_url":"{{#node_code_extract.image_url#}}","style_prompt":"{{#node_extractor.service#}} {{#node_extractor.color_summary#}}","conversation_id":"{{#sys.conversation_id#}}"}'
+                value: '{"image_url":"{{#node_code_extract.image_url#}}","style_prompt":"{{#node_extractor.confirmed_style#}}","conversation_id":"{{#sys.conversation_id#}}"}'
             type: json
           desc: |-
-            调用通义万相生成发型效果图（约 10–30 秒）。
+            严格按 confirmed_style 调用通义万相生成效果图（约 10–30s）。
+            image_url 为空时网关从 HairstyleSessionStore 取上一轮图片。
             ⚠ 导入后需手动将 read timeout 改为 90s。
-            返回 JSON：{"preview_url": "https://...", "task_id": "..."}
           headers: 'Content-Type: application/json'
           method: post
           params: ''
@@ -361,22 +383,55 @@ workflow:
         targetPosition: left
         type: custom
 
-      # ── Answer：含效果图（有图分支）────────────────────────────────
+      # ── Code：解析效果图 JSON body ───────────────────────────────────
       - data:
-          answer: "{{#node_llm.text#}}\n\n![发型效果预览]({{#node_http_hairstyle.body.preview_url#}})"
+          code: |
+            import json
+            def main(body: str) -> dict:
+                try:
+                    data = json.loads(body or "{}")
+                    url = data.get("preview_url") or ""
+                except Exception:
+                    url = ""
+                return {"preview_url": url}
+          code_language: python3
+          desc: 解析 /internal/hairstyle-preview 返回的 JSON，提取 preview_url
+          outputs:
+            preview_url:
+              description: 效果图 URL
+              type: string
+          title: 解析效果图URL
+          type: code
+          variables:
+            - label: body
+              value_selector:
+                - node_http_hairstyle
+                - body
+              variable: body
+        id: node_code_parse_preview
+        position:
+          x: 1620
+          y: 100
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      # ── Answer：含效果图（确认方案分支）────────────────────────────
+      - data:
+          answer: "{{#node_llm.text#}}\n\n发型效果预览：{{#node_code_parse_preview.preview_url#}}"
           desc: ''
           title: Answer（含效果图）
           type: answer
           variables: []
         id: node_answer_img
         position:
-          x: 1660
+          x: 1840
           y: 100
         sourcePosition: right
         targetPosition: left
         type: custom
 
-      # ── Answer：纯文字（无图分支）──────────────────────────────────
+      # ── Answer：纯文字（首次上传照片/普通对话）──────────────────────
       - data:
           answer: '{{#node_llm.text#}}'
           desc: ''
