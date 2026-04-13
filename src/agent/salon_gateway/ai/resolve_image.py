@@ -35,8 +35,16 @@ def _is_dify_cdn_host(host: str) -> bool:
 
 
 def _ensure_valid_dimensions(data: bytes, mime: str) -> tuple[bytes, str]:
-    """若图片任意边不在 [512, 4096] 范围内则等比缩放，返回 (bytes, mime)。"""
+    """规范化图片：修正 EXIF 旋转、确保尺寸在 [512, 4096]、JPEG 统一转 RGB baseline。
+
+    JPEG 始终经过 Pillow 重新编码，避免 CMYK / 旋转 / 非标准编码导致万相拒绝。
+    PNG 若尺寸已合法则返回原始字节（跳过重编码）。
+    """
+    from PIL import ImageOps  # lazy import，避免顶层循环依赖
+
     img = Image.open(io.BytesIO(data))
+    # 应用 EXIF 旋转（手机竖拍 JPEG 宽高会被翻转，不修正会误判尺寸）
+    img = ImageOps.exif_transpose(img)
     w, h = img.size
     original = (w, h)
 
@@ -50,22 +58,38 @@ def _ensure_valid_dimensions(data: bytes, mime: str) -> tuple[bytes, str]:
         scale = _MAX_DIM / max(w, h)
         w, h = min(_MAX_DIM, int(w * scale)), min(_MAX_DIM, int(h * scale))
 
-    if (w, h) == original:
-        return data, mime
+    fmt = "JPEG" if mime in ("image/jpeg", "image/jpg") else "PNG"
+    out_mime = "image/jpeg" if fmt == "JPEG" else "image/png"
 
-    img = img.resize((w, h), Image.LANCZOS)
-    if img.mode not in ("RGB", "RGBA"):
+    # PNG 且尺寸合法 → 原样返回，跳过重编码
+    if fmt == "PNG" and (w, h) == original:
+        return data, out_mime
+
+    if (w, h) != original:
+        img = img.resize((w, h), Image.LANCZOS)
+
+    # JPEG 不支持 alpha 通道；任何非 RGB 模式统一转换
+    if fmt == "JPEG":
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+    elif img.mode not in ("RGB", "RGBA"):
         img = img.convert("RGB")
+
     buf = io.BytesIO()
-    fmt = "JPEG" if mime == "image/jpeg" else "PNG"
-    save_mime = mime if mime in ("image/jpeg", "image/png") else "image/jpeg"
     img.save(buf, format=fmt, quality=92)
-    resized = buf.getvalue()
-    logger.info(
-        "image resized: {}x{} → {}x{} bytes {} → {}",
-        original[0], original[1], w, h, len(data), len(resized),
-    )
-    return resized, save_mime
+    result = buf.getvalue()
+
+    if (w, h) != original:
+        logger.info(
+            "image resized: {}x{} → {}x{} mime={} bytes {} → {}",
+            original[0], original[1], w, h, out_mime, len(data), len(result),
+        )
+    else:
+        logger.info(
+            "image re-encoded (JPEG normalize): {}x{} bytes {} → {}",
+            w, h, len(data), len(result),
+        )
+    return result, out_mime
 
 
 async def resolve_base_image_for_dashscope(url: str, settings: SalonGatewaySettings) -> str:
