@@ -6,25 +6,66 @@
 
 Dify 的 upload.dify.ai / *.dify.ai 预览链通常无法被阿里云侧直接拉取，
 需在网关用 Dify API Key 下载后转为 data URI 再提交。
+
+万相尺寸要求：宽高均在 512–4096 px 之间，文件 ≤ 10 MB。
+图片不符合时自动缩放。
 """
 
 from __future__ import annotations
 
 import base64
+import io
 from urllib.parse import urlparse
 
 import httpx
 from loguru import logger
+from PIL import Image
 
 from salon_gateway.config import SalonGatewaySettings
 
 _DEFAULT_MIME = "image/jpeg"
-_MAX_BYTES = 10 * 1024 * 1024  # 与万相文档单图上限一致
+_MAX_BYTES = 10 * 1024 * 1024  # 万相单图上限
+_MIN_DIM = 512   # 万相要求：宽高 ≥ 512
+_MAX_DIM = 4096  # 万相要求：宽高 ≤ 4096
 
 
 def _is_dify_cdn_host(host: str) -> bool:
     h = (host or "").lower()
     return h == "upload.dify.ai" or h.endswith(".dify.ai")
+
+
+def _ensure_valid_dimensions(data: bytes, mime: str) -> tuple[bytes, str]:
+    """若图片任意边不在 [512, 4096] 范围内则等比缩放，返回 (bytes, mime)。"""
+    img = Image.open(io.BytesIO(data))
+    w, h = img.size
+    original = (w, h)
+
+    # 按需放大（短边 < 512）
+    if w < _MIN_DIM or h < _MIN_DIM:
+        scale = _MIN_DIM / min(w, h)
+        w, h = max(_MIN_DIM, int(w * scale)), max(_MIN_DIM, int(h * scale))
+
+    # 按需缩小（长边 > 4096）
+    if w > _MAX_DIM or h > _MAX_DIM:
+        scale = _MAX_DIM / max(w, h)
+        w, h = min(_MAX_DIM, int(w * scale)), min(_MAX_DIM, int(h * scale))
+
+    if (w, h) == original:
+        return data, mime
+
+    img = img.resize((w, h), Image.LANCZOS)
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGB")
+    buf = io.BytesIO()
+    fmt = "JPEG" if mime == "image/jpeg" else "PNG"
+    save_mime = mime if mime in ("image/jpeg", "image/png") else "image/jpeg"
+    img.save(buf, format=fmt, quality=92)
+    resized = buf.getvalue()
+    logger.info(
+        "image resized: {}x{} → {}x{} bytes {} → {}",
+        original[0], original[1], w, h, len(data), len(resized),
+    )
+    return resized, save_mime
 
 
 async def resolve_base_image_for_dashscope(url: str, settings: SalonGatewaySettings) -> str:
@@ -75,6 +116,9 @@ async def resolve_base_image_for_dashscope(url: str, settings: SalonGatewaySetti
         ct = (r.headers.get("content-type") or "").split(";")[0].strip().lower()
         if not ct.startswith("image/"):
             ct = _DEFAULT_MIME
+
+        data, ct = _ensure_valid_dimensions(data, ct)
+
         b64 = base64.standard_b64encode(data).decode("ascii")
         logger.info(
             "resolved Dify image to data URI: bytes={} mime={}",
