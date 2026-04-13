@@ -19,6 +19,7 @@ from salon_gateway.ingress.wecom import (
     parse_sender_recipient,
     render_text_reply,
 )
+from salon_gateway.ai.resolve_image import resolve_base_image_for_dashscope
 from salon_gateway.ai.wanxiang import WanxiangClient
 from salon_gateway.models.booking import BookingDraft
 from salon_gateway.models.hairstyle import HairstylePreviewRequest, HairstylePreviewResponse
@@ -33,6 +34,11 @@ _pipeline: SalonPipeline | None = None
 _sink: FeishuBitableSink | LoggingSink | None = None
 _idempotency = IdempotencyCache()
 _booking_sessions = BookingSessionStore()
+
+_DEFAULT_HAIR_STYLE_PROMPT = (
+    "专业美发效果图：在保持人物面部与五官自然一致的前提下，"
+    "根据对话中的发型与发色意向进行真实感发型与染发编辑。"
+)
 
 
 def _get_wecom(settings: SalonGatewaySettings) -> WecomIngress:
@@ -239,8 +245,8 @@ async def internal_hairstyle_preview(
 
     鉴权与 POST /internal/booking 相同（Bearer 或 X-Salon-Token）。
 
-    注意：image_url 须为 DashScope 可公开拉取的 HTTPS URL。
-    若图片来自 Dify 内部存储（local_file），请先转存至 OSS 再传入。
+    image_url 可为公网 HTTPS，或 Dify 的 upload.dify.ai 预览链（网关会用
+    SALON_DIFY_API_KEY 下载并转为 data URI 再提交万相）。
     生成耗时约 10–30 秒，Dify HTTP 节点 read_timeout 须设置 ≥ 90s。
     """
     settings = get_settings()
@@ -254,14 +260,22 @@ async def internal_hairstyle_preview(
     if not body.image_url:
         raise HTTPException(status_code=400, detail="image_url is required")
 
+    style_prompt = (body.style_prompt or "").strip() or _DEFAULT_HAIR_STYLE_PROMPT
     logger.info(
         "hairstyle_preview: conversation_id={} style_prompt={!r}",
         body.conversation_id or "(none)",
-        body.style_prompt[:80] if body.style_prompt else "",
+        style_prompt[:80],
     )
+    try:
+        base_image = await resolve_base_image_for_dashscope(body.image_url, settings)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
     client = WanxiangClient(settings.dashscope_api_key, settings.wanxiang_model)
     try:
-        result = await client.generate_hairstyle(body.image_url, body.style_prompt)
+        result = await client.generate_hairstyle(base_image, style_prompt)
     except TimeoutError as e:
         logger.warning("hairstyle_preview: timeout conversation_id={}: {}", body.conversation_id, e)
         raise HTTPException(status_code=504, detail="image generation timed out") from e

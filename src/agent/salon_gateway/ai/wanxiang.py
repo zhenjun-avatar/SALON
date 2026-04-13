@@ -5,9 +5,8 @@
     2. GET  /tasks/{task_id}  轮询，直至 SUCCEEDED / FAILED
     3. 返回 results[0].url
 
-前置要求：
-    image_url 必须是 DashScope 可公开拉取的 HTTPS URL。
-    如果图片来自 Dify 内部存储（local_file），请先转存至 OSS 再传入。
+前置要求（base_image_url）：
+    公网 HTTPS URL，或 data:{mime};base64,...（网关对 upload.dify.ai 会代为下载并转 data URI）。
 """
 
 from __future__ import annotations
