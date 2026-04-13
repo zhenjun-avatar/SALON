@@ -120,6 +120,15 @@ Use a **stable `from_user`** per tester so `conversation_id` is reused across tu
 
 Do not commit API keys, tokens, or `.env`.
 
+## DEBUG
+curl -s -H "Authorization: Bearer 你的SALON_INTERNAL_BOOKING_TOKEN" \
+  https://quizmesh.tech/salon/internal/hairstyle-diag | python3 -m json.tool
+
+curl -s -X POST https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/image-synthesis \
+  -H "Authorization: Bearer $(grep SALON_DASHSCOPE_API_KEY /home/ecs-user/SOLAN/SALON/src/agent/.env | cut -d= -f2)" \
+  -H "Content-Type: application/json" \
+  -H "X-DashScope-Async: enable" \
+  -d '{"model":"wanx2.1-imageedit","input":{"function":"description_edit","prompt":"test","base_image_url":"https://img.alicdn.com/imgextra/i2/O1CN01BFcGEi1ZJgHMdNHcA_!!6000000003175-0-tps-800-600.jpg"},"parameters":{"n":1}}'
 ## License
 
 MIT License

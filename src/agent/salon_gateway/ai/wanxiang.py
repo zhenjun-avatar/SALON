@@ -12,10 +12,16 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
 
 import httpx
 from loguru import logger
+
+
+def _key_fingerprint(key: str) -> str:
+    """SHA-256 前 12 字符，便于与 DashScope 控制台 Key 比对（不暴露原值）。"""
+    return hashlib.sha256(key.encode()).hexdigest()[:12]
 
 _BASE = "https://dashscope.aliyuncs.com/api/v1"
 _GENERATION_PATH = "/services/aigc/image2image/image-synthesis"
@@ -67,6 +73,14 @@ class WanxiangClient:
                 headers=headers,
                 json=payload,
             )
+            if not resp.is_success:
+                snippet = (resp.text or "")[:2000]
+                logger.error(
+                    "wanxiang _submit HTTP {} key_sha256_12={} body={}",
+                    resp.status_code,
+                    _key_fingerprint(self._api_key),
+                    snippet,
+                )
             resp.raise_for_status()
             data = resp.json()
 

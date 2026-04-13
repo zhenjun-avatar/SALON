@@ -74,6 +74,13 @@ class SalonGatewaySettings(BaseSettings):
         description="通义万相图像编辑模型名称",
     )
 
+    @field_validator("dashscope_api_key", mode="before")
+    @classmethod
+    def normalize_dashscope_api_key(cls, v: object) -> str:
+        if v is None:
+            return ""
+        return _strip_env_secret_wrapping(str(v))
+
     # --- 飞书多维表（可选；未配置则只打日志）---
     feishu_app_id: str = ""
     feishu_app_secret: str = ""

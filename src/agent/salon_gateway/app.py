@@ -35,6 +35,8 @@ _sink: FeishuBitableSink | LoggingSink | None = None
 _idempotency = IdempotencyCache()
 _booking_sessions = BookingSessionStore()
 
+import hashlib as _hashlib
+
 _DEFAULT_HAIR_STYLE_PROMPT = (
     "专业美发效果图：在保持人物面部与五官自然一致的前提下，"
     "根据对话中的发型与发色意向进行真实感发型与染发编辑。"
@@ -146,6 +148,48 @@ app = FastAPI(title="Salon gateway (WeCom -> Dify -> Feishu)", lifespan=_lifespa
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/internal/hairstyle-diag")
+async def hairstyle_diag(
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> dict[str, object]:
+    """诊断：检查 DashScope Key 是否有效（提交一个极小的测试任务）。
+
+    鉴权同 /internal/booking（Bearer 或 X-Salon-Token）。
+    返回 key_sha256_12 供与控制台 Key 指纹比对。
+    """
+    settings = get_settings()
+    _auth_internal(settings, authorization, x_salon_token)
+    key = (settings.dashscope_api_key or "").strip()
+    info: dict[str, object] = {
+        "dashscope_key_configured": bool(key),
+        "dashscope_key_len": len(key),
+        "dashscope_key_sha256_12": _hashlib.sha256(key.encode()).hexdigest()[:12] if key else "",
+        "wanxiang_model": settings.wanxiang_model,
+        "dashscope_base": "https://dashscope.aliyuncs.com/api/v1",
+    }
+    if not key:
+        return {**info, "status": "error", "detail": "SALON_DASHSCOPE_API_KEY not set"}
+
+    import httpx as _httpx
+    try:
+        async with _httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(
+                "https://dashscope.aliyuncs.com/api/v1/tasks",
+                headers={"Authorization": f"Bearer {key}"},
+                params={"page_no": 1, "page_size": 1},
+            )
+        body_snippet = (r.text or "")[:500]
+        return {
+            **info,
+            "status": "ok" if r.is_success else "error",
+            "http_status": r.status_code,
+            "body_snippet": body_snippet,
+        }
+    except Exception as e:
+        return {**info, "status": "exception", "detail": str(e)}
 
 
 @app.get("/webhook/wecom")
