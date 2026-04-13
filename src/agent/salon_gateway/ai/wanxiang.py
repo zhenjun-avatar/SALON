@@ -23,6 +23,26 @@ def _key_fingerprint(key: str) -> str:
     """SHA-256 前 12 字符，便于与 DashScope 控制台 Key 比对（不暴露原值）。"""
     return hashlib.sha256(key.encode()).hexdigest()[:12]
 
+
+def build_hairstyle_prompt(style_description: str) -> str:
+    """将用户确认的发型方案描述包装为万相 description_edit 专用 prompt。
+
+    万相 description_edit 是通用图像编辑，不加约束时容易改动脸部或背景。
+    本模板明确约束：只改发型/发色，保留面部特征，确保效果自然真实。
+    """
+    desc = (style_description or "").strip()
+    if not desc:
+        return (
+            "在保持人物面部五官、肤色、身体比例完全不变的前提下，"
+            "对发型和发色进行专业美发造型修改，效果自然真实。"
+        )
+    return (
+        f"请严格按照以下发型方案修改图中人物的头发：{desc}。"
+        "要求：①只修改头发部分（发型、发色、发丝质感）；"
+        "②保持面部五官、肤色、妆容、衣着和背景完全不变；"
+        "③发色过渡自然，发丝细节真实，整体效果符合专业美发造型标准。"
+    )
+
 _DEFAULT_BASE = "https://dashscope.aliyuncs.com/api/v1"
 _GENERATION_PATH = "/services/aigc/image2image/image-synthesis"
 _TASK_PATH = "/tasks/{task_id}"
@@ -52,7 +72,8 @@ class WanxiangClient:
 
     async def generate_hairstyle(self, image_url: str, style_prompt: str) -> HairstyleResult:
         """提交发型重绘任务，轮询至完成，返回效果图 URL。"""
-        task_id = await self._submit(image_url, style_prompt)
+        prompt = build_hairstyle_prompt(style_prompt)
+        task_id = await self._submit(image_url, prompt)
         preview_url = await self._poll(task_id)
         return HairstyleResult(preview_url=preview_url, task_id=task_id)
 
