@@ -129,6 +129,8 @@ curl -s -X POST https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/
   -H "Content-Type: application/json" \
   -H "X-DashScope-Async: enable" \
   -d '{"model":"wanx2.1-imageedit","input":{"function":"description_edit","prompt":"test","base_image_url":"https://img.alicdn.com/imgextra/i2/O1CN01BFcGEi1ZJgHMdNHcA_!!6000000003175-0-tps-800-600.jpg"},"parameters":{"n":1}}'
+
+  pip install alibabacloud-imageseg20191230 alibabacloud-tea-openapi
 ## License
 
 MIT License

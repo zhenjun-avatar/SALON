@@ -5,43 +5,53 @@
     2. GET  /tasks/{task_id}  轮询，直至 SUCCEEDED / FAILED
     3. 返回 results[0].url
 
-前置要求（base_image_url）：
-    公网 HTTPS URL，或 data:{mime};base64,...（网关对 upload.dify.ai 会代为下载并转 data URI）。
+两种编辑模式：
+    - description_edit：通用编辑，无 mask，精度一般（降级 fallback）
+    - description_edit_with_mask：限定发区 mask，仅修改头发，精度高（需配置 AK/SK）
+
+base_image_url / mask_image_url：
+    公网 HTTPS URL 或 data:{mime};base64,...（网关对 Dify CDN 图片会代为下载转 data URI）。
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 from loguru import logger
 
+if TYPE_CHECKING:
+    from salon_gateway.ai.hair_segment import HairSegmentClient
+
 
 def _key_fingerprint(key: str) -> str:
-    """SHA-256 前 12 字符，便于与 DashScope 控制台 Key 比对（不暴露原值）。"""
     return hashlib.sha256(key.encode()).hexdigest()[:12]
 
 
 def build_hairstyle_prompt(style_description: str) -> str:
-    """将用户确认的发型方案描述包装为万相 description_edit 专用 prompt。
-
-    万相 description_edit 是通用图像编辑，不加约束时容易改动脸部或背景。
-    本模板明确约束：只改发型/发色，保留面部特征，确保效果自然真实。
-    """
+    """构造万相发型编辑专用 prompt：英文主体 + 明确约束 + 中文补充。"""
     desc = (style_description or "").strip()
     if not desc:
         return (
-            "在保持人物面部五官、肤色、身体比例完全不变的前提下，"
-            "对发型和发色进行专业美发造型修改，效果自然真实。"
+            "Professional hair salon transformation: modify ONLY the hair (style, color, texture). "
+            "Do NOT change face, skin tone, makeup, eyes, nose, mouth, body, clothing, or background. "
+            "Result must look like a real salon photo, natural and realistic."
         )
     return (
-        f"请严格按照以下发型方案修改图中人物的头发：{desc}。"
-        "要求：①只修改头发部分（发型、发色、发丝质感）；"
-        "②保持面部五官、肤色、妆容、衣着和背景完全不变；"
-        "③发色过渡自然，发丝细节真实，整体效果符合专业美发造型标准。"
+        "Professional hair salon makeover. "
+        "TARGET (change ONLY these): hair length, hair shape, hairstyle, hair color, hair texture, bangs. "
+        "PRESERVE (do NOT change anything else): face shape, facial features, skin tone, eye color, "
+        "makeup, ears, neck, body, clothing, accessories, background, lighting. "
+        f"Hair style to apply: {desc}. "
+        "The transformation must be photorealistic, like a professional before-after salon photo. "
+        "Hair color transition should be smooth and natural, not artificial or painted-looking. "
+        f"发型方案：{desc}。"
     )
+
 
 _DEFAULT_BASE = "https://dashscope.aliyuncs.com/api/v1"
 _GENERATION_PATH = "/services/aigc/image2image/image-synthesis"
@@ -55,38 +65,85 @@ _MAX_POLLS = 20  # 最多等待约 60 秒
 class HairstyleResult:
     preview_url: str
     task_id: str
+    used_mask: bool = False  # 是否使用了 SegmentHair mask
+
+
+def _extract_bytes_from_data_uri(data_uri: str) -> bytes:
+    """从 data URI 中解码出原始字节。"""
+    _, b64 = data_uri.split(",", 1)
+    return base64.standard_b64decode(b64)
 
 
 class WanxiangClient:
-    """通义万相图像编辑（img2img）异步客户端，仅依赖 httpx。"""
+    """通义万相图像编辑（img2img）异步客户端。
+
+    可选传入 HairSegmentClient；有则自动走 description_edit_with_mask 精准模式，
+    无则降级到 description_edit 通用模式。
+    """
 
     def __init__(
         self,
         api_key: str,
         model: str = "wanx2.1-imageedit",
         base_url: str = _DEFAULT_BASE,
+        hair_segment_client: "HairSegmentClient | None" = None,
     ) -> None:
         self._api_key = api_key
         self._model = model
         self._base = base_url.rstrip("/")
+        self._segment = hair_segment_client
 
     async def generate_hairstyle(self, image_url: str, style_prompt: str) -> HairstyleResult:
-        """提交发型重绘任务，轮询至完成，返回效果图 URL。"""
+        """提交发型重绘任务，轮询至完成，返回效果图 URL。
+
+        若 HairSegmentClient 已配置，先做发区分割再精准重绘；否则通用模式。
+        """
         prompt = build_hairstyle_prompt(style_prompt)
-        task_id = await self._submit(image_url, prompt)
+        mask_uri: str | None = None
+        used_mask = False
+
+        if self._segment and image_url.startswith("data:"):
+            try:
+                image_bytes = _extract_bytes_from_data_uri(image_url)
+                mask_uri = await self._segment.get_mask_data_uri(image_bytes)
+                used_mask = True
+                logger.info("wanxiang: using hair mask (description_edit_with_mask)")
+            except Exception as e:
+                logger.warning(
+                    "wanxiang: hair segmentation failed, falling back to description_edit: {}", e
+                )
+
+        task_id = await self._submit(image_url, prompt, mask_uri)
         preview_url = await self._poll(task_id)
-        return HairstyleResult(preview_url=preview_url, task_id=task_id)
+        return HairstyleResult(preview_url=preview_url, task_id=task_id, used_mask=used_mask)
 
     # ------------------------------------------------------------------ private
 
-    async def _submit(self, image_url: str, style_prompt: str) -> str:
-        payload = {
-            "model": self._model,
-            "input": {
-                "function": "description_edit",
+    async def _submit(
+        self,
+        image_url: str,
+        style_prompt: str,
+        mask_uri: str | None = None,
+    ) -> str:
+        if mask_uri:
+            func = "description_edit_with_mask"
+            inp = {
+                "function": func,
                 "prompt": style_prompt,
                 "base_image_url": image_url,
-            },
+                "mask_image_url": mask_uri,
+            }
+        else:
+            func = "description_edit"
+            inp = {
+                "function": func,
+                "prompt": style_prompt,
+                "base_image_url": image_url,
+            }
+
+        payload = {
+            "model": self._model,
+            "input": inp,
             "parameters": {"n": 1},
         }
         headers = {
@@ -103,8 +160,9 @@ class WanxiangClient:
             if not resp.is_success:
                 snippet = (resp.text or "")[:2000]
                 logger.error(
-                    "wanxiang _submit HTTP {} key_sha256_12={} body={}",
+                    "wanxiang _submit HTTP {} function={} key_sha256_12={} body={}",
                     resp.status_code,
+                    func,
                     _key_fingerprint(self._api_key),
                     snippet,
                 )
@@ -112,7 +170,10 @@ class WanxiangClient:
             data = resp.json()
 
         task_id: str = data["output"]["task_id"]
-        logger.info("wanxiang: task submitted task_id={} model={}", task_id, self._model)
+        logger.info(
+            "wanxiang: task submitted task_id={} model={} function={}",
+            task_id, self._model, func,
+        )
         return task_id
 
     async def _poll(self, task_id: str) -> str:

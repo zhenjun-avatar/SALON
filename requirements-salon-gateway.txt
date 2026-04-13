@@ -7,3 +7,6 @@ cryptography>=42.0.0
 wechatpy>=1.8.18
 xmltodict>=0.13
 Pillow>=10.0
+# 阿里云视觉智能 SegmentHair（发区分割，可选；未配置 AK/SK 时不加载）
+alibabacloud-imageseg20191230>=1.0.1
+alibabacloud-tea-openapi>=0.3.9

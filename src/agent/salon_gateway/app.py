@@ -20,6 +20,7 @@ from salon_gateway.ingress.wecom import (
     parse_sender_recipient,
     render_text_reply,
 )
+from salon_gateway.ai.hair_segment import HairSegmentClient
 from salon_gateway.ai.resolve_image import resolve_base_image_for_dashscope
 from salon_gateway.ai.wanxiang import WanxiangClient
 from salon_gateway.models.booking import BookingDraft
@@ -328,10 +329,22 @@ async def internal_hairstyle_preview(
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
+    segment_client: HairSegmentClient | None = None
+    if settings.aliyun_access_key_id and settings.aliyun_access_key_secret:
+        segment_client = HairSegmentClient(
+            settings.aliyun_access_key_id,
+            settings.aliyun_access_key_secret,
+            settings.aliyun_imageseg_region,
+        )
+        logger.info("hairstyle_preview: SegmentHair enabled (mask mode)")
+    else:
+        logger.info("hairstyle_preview: SegmentHair not configured, using description_edit fallback")
+
     client = WanxiangClient(
         settings.dashscope_api_key,
         settings.wanxiang_model,
         settings.dashscope_base_url,
+        hair_segment_client=segment_client,
     )
     try:
         result = await client.generate_hairstyle(base_image, style_prompt)

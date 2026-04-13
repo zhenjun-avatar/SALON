@@ -64,6 +64,26 @@ class SalonGatewaySettings(BaseSettings):
         description="非空则开启 POST /simulate/wecom-text，需 Bearer / X-Salon-Token 与此相同",
     )
 
+    # --- 阿里云 RAM AccessKey（SegmentHair 发区分割，可选）---
+    # 与 DashScope API Key 不同：在 RAM 控制台 → 用户 → AccessKey 管理 中创建
+    # 需开通「视觉智能开放平台」→「图像分割」→「头发分割」能力
+    # 未配置时降级为 description_edit（无 mask）模式
+    aliyun_access_key_id: str = Field(default="", description="阿里云 RAM AK ID，用于 SegmentHair")
+    aliyun_access_key_secret: str = Field(
+        default="", description="阿里云 RAM AK Secret，用于 SegmentHair"
+    )
+    aliyun_imageseg_region: str = Field(
+        default="cn-shanghai",
+        description="SegmentHair 服务地域，如 cn-shanghai / cn-hangzhou",
+    )
+
+    @field_validator("aliyun_access_key_id", "aliyun_access_key_secret", mode="before")
+    @classmethod
+    def normalize_aliyun_keys(cls, v: object) -> str:
+        if v is None:
+            return ""
+        return _strip_env_secret_wrapping(str(v))
+
     # --- 通义万相（发型效果图生成，可选）---
     dashscope_api_key: str = Field(
         default="",
