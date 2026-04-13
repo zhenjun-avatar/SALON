@@ -69,6 +69,23 @@ def test_booking_service_empty_omitted() -> None:
     assert BookingDraft(service=[]).to_feishu_fields({"service": "项目"}) == {}
 
 
+def test_feishu_option_name_filter() -> None:
+    from salon_gateway.sink.feishu import FeishuBitableSink
+
+    opts = [
+        {"id": "o1", "name": "东门店"},
+        {"id": "o2", "name": "西门店"},
+        {"color": 0, "id": "o3", "name": "染发"},
+    ]
+    assert FeishuBitableSink._filter_option_names(opts, "") == [
+        {"id": "o1", "name": "东门店"},
+        {"id": "o2", "name": "西门店"},
+        {"id": "o3", "name": "染发"},
+    ]
+    assert FeishuBitableSink._filter_option_names(opts, "东") == [{"id": "o1", "name": "东门店"}]
+    assert FeishuBitableSink._filter_option_names(opts, "染") == [{"id": "o3", "name": "染发"}]
+
+
 def test_booking_session_accumulation() -> None:
     from salon_gateway.booking.session import BookingSessionStore
 

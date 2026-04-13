@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 代理构建服务合同（草案）</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --border: #cbd5e1;
+      --accent: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 24px 48px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--ink);
+      background: #f8fafc;
+    }
+    .doc {
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 28mm 22mm 24mm;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+    }
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      margin: 0 0 8px;
+    }
+    .sub-meta {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+    .sub-meta p { margin: 4px 0; }
+    h2 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 26px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--accent);
+    }
+    h3 {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 18px 0 10px;
+      color: #1e293b;
+    }
+    p { margin: 8px 0; }
+    ol, ul { margin: 8px 0; padding-left: 1.35em; }
+    li { margin: 4px 0; }
+    .party {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px 32px;
+      margin: 16px 0;
+    }
+    @media (max-width: 720px) {
+      .party { grid-template-columns: 1fr; }
+    }
+    .party-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #fafbfc;
+    }
+    .party-block h3 { margin-top: 0; }
+    .blank {
+      border-bottom: 1px solid #94a3b8;
+      min-width: 8em;
+      display: inline-block;
+      min-height: 1.2em;
+      vertical-align: bottom;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin: 12px 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f1f5f9; font-weight: 600; }
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .sign {
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 720px) {
+      .sign { grid-template-columns: 1fr; }
+    }
+    .sign-block { min-height: 100px; }
+    footer.doc-foot {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--border);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    @page { size: A4; margin: 18mm; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .doc {
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <article class="doc">
+    <h1>AI 代理构建服务合同</h1>
+    <p style="text-align:center;font-size:13px;color:#64748b;margin:0 0 20px;">（草案 · 供磋商使用）</p>
+    <div class="sub-meta">
+      <p>合同编号：<span class="blank">&nbsp;</span></p>
+      <p>签订日期：<span class="blank">&nbsp;</span>　签订地点：<span class="blank">&nbsp;</span></p>
+    </div>
+
+    <div class="party">
+      <div class="party-block">
+        <h3>甲方（委托方）</h3>
+        <p>名称：<span class="blank" style="width:100%">&nbsp;</span></p>
+        <p>统一社会信用代码 / 身份证号：<span class="blank" style="width:100%">&nbsp;</span></p>
+        <p>地址：<span class="blank" style="width:100%">&nbsp;</span></p>
+        <p>联系人：<span class="blank">&nbsp;</span>　职务：<span class="blank">&nbsp;</span></p>
+        <p>电话：<span class="blank">&nbsp;</span>　电子邮箱：<span class="blank">&nbsp;</span></p>
+      </div>
+      <div class="party-block">
+        <h3>乙方（服务方）</h3>
+        <p>名称：<span class="blank" style="width:100%">&nbsp;</span></p>
+        <p>统一社会信用代码 / 身份证号：<span class="blank" style="width:100%">&nbsp;</span></p>
+        <p>地址：<span class="blank" style="width:100%">&nbsp;</span></p>
+        <p>联系人：<span class="blank">&nbsp;</span>　职务：<span class="blank">&nbsp;</span></p>
+        <p>电话：<span class="blank">&nbsp;</span>　电子邮箱：<span class="blank">&nbsp;</span></p>
+      </div>
+    </div>
+
+    <p>甲、乙双方本着平等自愿、诚实信用原则，就甲方委托乙方提供 <strong>企业级 AI 代理（Agent）构建与相关技术服务</strong> 事宜，达成如下条款。</p>
+
+    <h2>第一条　服务内容与范围</h2>
+    <p>乙方根据甲方需求，在约定范围内提供下列一项或多项服务（以 <strong>《工作说明书》（SOW）</strong> 或附件清单为准）：</p>
+    <ol>
+      <li><strong>需求与方案</strong>：业务场景梳理、人机协作边界、数据与系统集成清单、技术路线说明。</li>
+      <li><strong>智能体与工作流</strong>：基于 Dify、LangGraph 等工具的可视化编排、工具调用（HTTP/API）、条件分支、会话与状态设计等。</li>
+      <li><strong>知识库与 RAG</strong>：文档解析与切分策略、向量与检索方案、元数据与权限设计；可选混合检索、重排序、评测（如 RAGAS）与观测（如 Langfuse）。</li>
+      <li><strong>系统集成</strong>：与甲方现有系统（如企微、飞书多维表、业务网关、数据库等）的对接方案与联调支持。</li>
+      <li><strong>交付与移交</strong>：可运行环境说明、配置与密钥管理建议、基础运维与变更说明；约定次数内的培训与答疑。</li>
+    </ol>
+    <p><strong>不在默认范围内</strong>（除非 SOW 另行约定并计费）：甲方自有模型采购费、第三方 SaaS/API 按量费用、超出约定人天的定制开发、7×24 驻场运维、等保/密评等合规认证代办。</p>
+
+    <h2>第二条　交付物与验收</h2>
+    <ol>
+      <li>交付物以 SOW 列明的 <strong>软件制品、配置文件、文档、演示环境或仓库访问权限</strong> 为准。</li>
+      <li>甲方应在收到乙方 <strong>验收申请</strong> 后 <span class="blank">&nbsp;</span> <strong>个工作日</strong> 内完成验收；逾期未书面提出具体异议的，视为 <strong>阶段性验收通过</strong>（双方另有约定的除外）。</li>
+      <li>验收标准：符合 SOW 中的功能描述与测试用例；重大缺陷（导致约定核心流程不可用）未修复的，不视为通过。</li>
+    </ol>
+
+    <h2>第三条　费用方案</h2>
+    <p>以下方案由双方勾选或改写为附件 <strong>《报价单》</strong>。</p>
+
+    <h3>方案 A：按项目打包（固定价）</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>档位</th>
+          <th>适用场景</th>
+          <th>包含内容（示例）</th>
+          <th>含税总价（人民币）</th>
+          <th>备注</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>A1 轻量版</strong></td>
+          <td>单场景、少工具、无复杂 RAG</td>
+          <td>1 条主工作流、≤2 个 HTTP 工具、基础提示词与测试、1 次培训（2h）</td>
+          <td>¥<span class="blank">&nbsp;</span>万</td>
+          <td>周期约 3–4 周</td>
+        </tr>
+        <tr>
+          <td><strong>A2 标准版</strong></td>
+          <td>多工具 + 知识库 + 1 套系统集成</td>
+          <td>工作流 + RAG（单库）、企微/飞书等 1 类集成、观测与基础评测、文档与 2 次培训</td>
+          <td>¥<span class="blank">&nbsp;</span>万</td>
+          <td>周期约 6–10 周</td>
+        </tr>
+        <tr>
+          <td><strong>A3 增强版</strong></td>
+          <td>多场景 / 混合检索 / 多系统</td>
+          <td>多工作流协调、混合检索与重排、多数据源、2 类及以上系统对接、联调与压测支持</td>
+          <td>¥<span class="blank">&nbsp;</span>万</td>
+          <td>周期双方另议</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">注：金额为示意，以双方盖章《报价单》为准。</p>
+
+    <h3>方案 B：人天 + 上限封顶</h3>
+    <ul>
+      <li>人天单价：¥<span class="blank">&nbsp;</span>/ 人天（含税 / 不含税请注明）。</li>
+      <li>预估人天：<span class="blank">&nbsp;</span> 人天（需求评审后 ±<span class="blank">&nbsp;</span>% 内浮动）。</li>
+      <li>费用上限：不超过 ¥<span class="blank">&nbsp;</span>；超出部分须 <strong>书面变更单</strong> 确认后执行。</li>
+    </ul>
+
+    <h3>方案 C：首期建设 + 年度运维</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>项目</th>
+          <th>金额（人民币）</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>首期建设费</td>
+          <td>¥<span class="blank">&nbsp;</span></td>
+          <td>同方案 A 或 B 结算结果</td>
+        </tr>
+        <tr>
+          <td>年度运维与支持</td>
+          <td>¥<span class="blank">&nbsp;</span>/ 年</td>
+          <td>约定 SLA 内响应、小版本修复、每月 <span class="blank">&nbsp;</span> 小时优化额度；不含大功能新增</td>
+        </tr>
+        <tr>
+          <td>超出额度</td>
+          <td>¥<span class="blank">&nbsp;</span>/ 小时 或 人天计价</td>
+          <td>须事先书面确认</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>第四条　付款方式</h2>
+    <ol>
+      <li>签约后 <span class="blank">&nbsp;</span> 日内，甲方向乙方支付合同总额的 <span class="blank">&nbsp;</span>% 作为 <strong>预付款</strong>。</li>
+      <li><strong>里程碑付款</strong>（可勾选）：需求确认 <span class="blank">&nbsp;</span>%；核心联调通过 <span class="blank">&nbsp;</span>%；终验通过 <span class="blank">&nbsp;</span>%；质保期满 <span class="blank">&nbsp;</span>%。</li>
+      <li>发票类型：<span class="blank">&nbsp;</span>；甲方收到合格发票后 <span class="blank">&nbsp;</span> 日内付款。</li>
+      <li>乙方账户：户名 <span class="blank">&nbsp;</span>；开户行 <span class="blank">&nbsp;</span>；账号 <span class="blank">&nbsp;</span>。</li>
+    </ol>
+
+    <h2>第五条　双方权利义务</h2>
+    <p><strong>甲方</strong>：及时提供业务资料、测试账号、接口文档与决策人；对数据合法来源与授权负责。</p>
+    <p><strong>乙方</strong>：按约定专业标准交付；对已知安全风险与架构限制予以说明；未经同意不得将甲方数据用于与本项目无关用途。</p>
+
+    <h2>第六条　知识产权</h2>
+    <p>在甲方 <strong>付清本合同项下应付费用</strong> 后，SOW 约定为甲方专有的定制交付物（不含乙方通用框架、开源组件），使用权归甲方；著作权归属以附件约定为准（可约定甲方使用权、乙方保留底层工具权）。乙方自有可复用资产，乙方保留知识产权，甲方获本项目范围内使用权。</p>
+
+    <h2>第七条　保密</h2>
+    <p>双方对履行合同中知悉的对方商业秘密、技术信息、用户数据等承担保密义务，期限为合同终止后 <span class="blank">&nbsp;</span> 年。</p>
+
+    <h2>第八条　质保与维护</h2>
+    <p>免费质保期：终验通过之日起 <span class="blank">&nbsp;</span> 个月，修复 SOW 范围内缺陷（非新需求）。质保期外按第三条或另行报价。</p>
+
+    <h2>第九条　违约责任</h2>
+    <ol>
+      <li>甲方逾期付款，每逾期一日按逾期金额的万分之 <span class="blank">&nbsp;</span> 计违约金（上限不超过逾期部分 <span class="blank">&nbsp;</span>%）。</li>
+      <li>乙方无正当理由逾期交付超过 <span class="blank">&nbsp;</span> 日，甲方可催告；仍不改正的，可解除合同并就未履行部分主张退款（比例可附件约定）。</li>
+      <li>不可抗力或甲方原因导致延期，工期顺延。</li>
+    </ol>
+
+    <h2>第十条　合同变更与解除</h2>
+    <p>范围、费用、周期变更须 <strong>书面补充协议</strong> 或 <strong>变更单</strong>。一方严重违约且未在 <span class="blank">&nbsp;</span> 日内补救的，守约方可解除合同并主张直接损失（间接损失可约定限额或排除）。</p>
+
+    <h2>第十一条　争议解决</h2>
+    <p>协商不成，提交 <span class="blank" style="min-width:14em">&nbsp;</span> 人民法院诉讼解决（或 <span class="blank" style="min-width:14em">&nbsp;</span> 仲裁委员会仲裁）。</p>
+
+    <h2>第十二条　其他</h2>
+    <ol>
+      <li>附件与正文具有同等效力：《工作说明书（SOW）》《报价单》《保密协议》（如有）。</li>
+      <li>本合同一式 <span class="blank">&nbsp;</span> 份，双方各执 <span class="blank">&nbsp;</span> 份，自双方盖章之日起生效。</li>
+    </ol>
+
+    <div class="sign">
+      <div class="sign-block">
+        <p><strong>甲方（盖章）</strong></p>
+        <p>授权代表签字：<span class="blank">&nbsp;</span></p>
+        <p>日期：<span class="blank">&nbsp;</span></p>
+      </div>
+      <div class="sign-block">
+        <p><strong>乙方（盖章）</strong></p>
+        <p>授权代表签字：<span class="blank">&nbsp;</span></p>
+        <p>日期：<span class="blank">&nbsp;</span></p>
+      </div>
+    </div>
+
+    <footer class="doc-foot">
+      <p>提示：金额、周期、管辖条款及知识产权细则请按实际商务与律师意见填写后再签署。打印建议使用 A4、边距默认，可关闭浏览器页眉页脚。</p>
+    </footer>
+  </article>
+</body>
+</html>

@@ -64,6 +64,16 @@ class SalonGatewaySettings(BaseSettings):
         description="非空则开启 POST /simulate/wecom-text，需 Bearer / X-Salon-Token 与此相同",
     )
 
+    # --- 通义万相（发型效果图生成，可选）---
+    dashscope_api_key: str = Field(
+        default="",
+        description="DashScope API Key，用于通义万相图像编辑；为空则关闭 /internal/hairstyle-preview",
+    )
+    wanxiang_model: str = Field(
+        default="wanx2.1-imageedit",
+        description="通义万相图像编辑模型名称",
+    )
+
     # --- 飞书多维表（可选；未配置则只打日志）---
     feishu_app_id: str = ""
     feishu_app_secret: str = ""

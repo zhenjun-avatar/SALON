@@ -1,29 +1,43 @@
-# Dify DSL — Salon Chatflow v3
+# Dify DSL — Salon Chatflow v4
 #
-# 架构原则（生产最佳实践）
-# ─────────────────────────
-# Dify 无状态：参数提取节点每次只看「当前用户消息」，无法跨轮累积字段。
-# 正确做法：把状态管理放到后端（Python BookingSessionStore），Dify 只做：
-#   1. LLM 对话引导
-#   2. 从当前消息提取字段（parameter-extractor, query=sys.query）
-#   3. 每轮 POST 到网关（无论信息是否完整）
-# 网关负责跨轮累积，在首次 phone+slot_text+store 均齐时才写飞书，后续重复
-# 请求不再重写（complete=false 表示"收到但尚未完整"，complete=true 表示已写入）。
+# 新功能（v4）：发型效果图生成
+# ─────────────────────────────
+# 用户上传照片后，流程在提交预约之后额外生成发型效果图：
+#   1. Code 节点（提取图片URL）：从 sys.files 取出首张图片的访问 URL。
+#   2. Extractor 提取 service / color_summary，作为发型描述传给生成 API。
+#   3. 提交预约（同 v3，先于图像生成，确保预约不因图像超时而丢失）。
+#   4. IF-ELSE：检查 code 节点是否拿到了图片 URL。
+#      ├─ 有图 → HTTP 调 /internal/hairstyle-preview（通义万相，约 10–30s）
+#      │         → Answer（LLM 文字 + 效果图 Markdown）
+#      └─ 无图 → Answer（仅 LLM 文字，同 v3）
+#
+# 注意：
+#   • image_url 必须是 DashScope 可公开拉取的 HTTPS URL。
+#     若 Dify 文件来自 remote_url 上传（外部 URL），直接可用；
+#     若来自 local_file 上传（Dify 内部存储），需先转存至 OSS。
+#   • Dify「生成效果图」HTTP 节点 read_timeout 须 ≥ 90s（通义万相生成耗时）。
+#   • 后端须配置 SALON_DASHSCOPE_API_KEY；未配置则该端点返回 503，
+#     Dify 报 HTTP 错误，效果图分支失败但预约已提交（不影响主流程）。
+#
+# 架构原则（继承自 v3）
+# ─────────────────────
+# Dify 无状态：参数提取节点每次只看「当前用户消息」。
+# 状态管理在后端 BookingSessionStore；phone+store+slot_text 首次齐全才写飞书。
 #
 # 导入后必做：
-# 1) 打开「LLM」节点，选择模型供应商与模型。
-# 2) 打开「提取预约参数」节点，同样选择模型（建议与 LLM 相同）。
-# 3) 打开「提交预约」HTTP 节点 → 鉴权 API-Key（Bearer）→ 填入 SALON_INTERNAL_BOOKING_TOKEN。
-#    只保留内置 Bearer，不要在 Headers 再手动加 Authorization（两套并存必 401）。
-# 4) 若网关不在默认域名，改 URL。
-# 5) 发布。
+# 1) 「LLM」节点选 Vision 模型（如 qwen-vl-plus）。
+# 2) 「提取预约参数」节点可选 deepseek-chat 等纯文本模型（省成本）。
+# 3) 「提交预约」和「生成效果图」HTTP 节点 → 鉴权 Bearer → 填 SALON_INTERNAL_BOOKING_TOKEN。
+# 4) 「生成效果图」HTTP 节点 → 超时设置 → read timeout 改为 90s。
+# 5) 若网关不在默认域名，改 URL。
+# 6) 发布。
 
 app:
-  description: Salon WeCom gateway v3 — session-based booking accumulation
+  description: Salon WeCom gateway v4 — booking + hairstyle preview
   icon: 💇
   icon_background: '#FFEAD5'
   mode: advanced-chat
-  name: Salon 预约客服 v3
+  name: Salon 预约客服 v4
   use_icon_as_answer_icon: false
 dependencies: []
 kind: app
@@ -55,27 +69,52 @@ workflow:
       voice: ''
   graph:
     edges:
+      # ── 主干 ──────────────────────────────────────────────────────────
       - id: start-llm
         source: node_start
         sourceHandle: source
         target: node_llm
         targetHandle: target
-      - id: llm-extractor
+      - id: llm-code
         source: node_llm
+        sourceHandle: source
+        target: node_code_extract
+        targetHandle: target
+      - id: code-extractor
+        source: node_code_extract
         sourceHandle: source
         target: node_extractor
         targetHandle: target
-      - id: extractor-http
+      - id: extractor-booking
         source: node_extractor
         sourceHandle: source
-        target: node_http
+        target: node_http_booking
         targetHandle: target
-      - id: http-answer
-        source: node_http
+      - id: booking-ifelse
+        source: node_http_booking
         sourceHandle: source
-        target: node_answer
+        target: node_ifelse_has_image
         targetHandle: target
+      # ── 有图分支（true）───────────────────────────────────────────────
+      - id: ifelse-hairstyle
+        source: node_ifelse_has_image
+        sourceHandle: has_image
+        target: node_http_hairstyle
+        targetHandle: target
+      - id: hairstyle-answer-img
+        source: node_http_hairstyle
+        sourceHandle: source
+        target: node_answer_img
+        targetHandle: target
+      # ── 无图分支（false）──────────────────────────────────────────────
+      - id: ifelse-answer-text
+        source: node_ifelse_has_image
+        sourceHandle: 'false'
+        target: node_answer_text
+        targetHandle: target
+
     nodes:
+      # ── Start ────────────────────────────────────────────────────────
       - data:
           desc: ''
           title: Start
@@ -84,11 +123,12 @@ workflow:
         id: node_start
         position:
           x: 80
-          y: 282
+          y: 300
         sourcePosition: right
         targetPosition: left
         type: custom
 
+      # ── LLM（Vision）────────────────────────────────────────────────
       - data:
           context:
             enabled: false
@@ -115,6 +155,7 @@ workflow:
                 当你判断已收集到电话+门店+时间时，在回复中告知用户"预约已提交，等待确认"。
                 若用户发送了照片（本人照片或参照案例），请仔细分析图片，结合发质、脸型、当前发色等，
                 推荐 2-3 个具体的发型或染发方案（包括发色名称、参考色号、造型建议），语气专业且亲切。
+                若用户上传了本人照片并明确希望看效果图，告知用户"正在为您生成发型效果图，请稍候…"。
             - role: user
               selected: true
               text: "{{#sys.query#}}\n{{#sys.files#}}"
@@ -125,12 +166,44 @@ workflow:
             enabled: true
         id: node_llm
         position:
-          x: 380
-          y: 282
+          x: 300
+          y: 300
         sourcePosition: right
         targetPosition: left
         type: custom
 
+      # ── Code：提取首张图片 URL ──────────────────────────────────────
+      - data:
+          code: |
+            def main(files: list) -> dict:
+                for f in (files or []):
+                    url = (f or {}).get("url") or (f or {}).get("remote_url") or ""
+                    if url:
+                        return {"image_url": url}
+                return {"image_url": ""}
+          code_language: python3
+          desc: 从 sys.files 提取首张图片的可访问 URL（无图时返回空字符串）
+          outputs:
+            image_url:
+              description: 首张图片的 URL，无图时为空字符串
+              type: string
+          title: 提取图片URL
+          type: code
+          variables:
+            - label: files
+              value_selector:
+                - sys
+                - files
+              variable: files
+        id: node_code_extract
+        position:
+          x: 520
+          y: 300
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      # ── Parameter Extractor ──────────────────────────────────────────
       - data:
           desc: 从当前用户消息提取本轮新增的预约字段（网关负责跨轮累积）
           instruction: |-
@@ -176,12 +249,13 @@ workflow:
           type: parameter-extractor
         id: node_extractor
         position:
-          x: 680
-          y: 282
+          x: 740
+          y: 300
         sourcePosition: right
         targetPosition: left
         type: custom
 
+      # ── HTTP：提交预约 ───────────────────────────────────────────────
       - data:
           authorization:
             config:
@@ -215,24 +289,104 @@ workflow:
           type: http-request
           url: https://quizmesh.tech/salon/internal/booking
           variables: []
-        id: node_http
+        id: node_http_booking
         position:
-          x: 980
-          y: 282
+          x: 960
+          y: 300
         sourcePosition: right
         targetPosition: left
         type: custom
 
+      # ── IF-ELSE：是否有图片 ──────────────────────────────────────────
+      - data:
+          cases:
+            - case_id: has_image
+              conditions:
+                - comparison_operator: not empty
+                  variable_selector:
+                    - node_code_extract
+                    - image_url
+              logical_operator: and
+          desc: ''
+          title: 是否有图片
+          type: if-else
+        id: node_ifelse_has_image
+        position:
+          x: 1180
+          y: 300
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      # ── HTTP：生成发型效果图（有图分支）────────────────────────────
+      - data:
+          authorization:
+            config:
+              api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
+              header: ''
+              type: bearer
+            type: api-key
+          body:
+            data:
+              - id: json-body-hairstyle
+                key: ''
+                type: text
+                value: '{"image_url":"{{#node_code_extract.image_url#}}","style_prompt":"{{#node_extractor.service#}} {{#node_extractor.color_summary#}}","conversation_id":"{{#sys.conversation_id#}}"}'
+            type: json
+          desc: |-
+            调用通义万相生成发型效果图（约 10–30 秒）。
+            ⚠ 导入后需手动将 read timeout 改为 90s。
+            返回 JSON：{"preview_url": "https://...", "task_id": "..."}
+          headers: 'Content-Type: application/json'
+          method: post
+          params: ''
+          retry_config:
+            max_retries: 1
+            retry_enabled: true
+            retry_interval: 1000
+          ssl_verify: true
+          timeout:
+            max_connect_timeout: 10
+            max_read_timeout: 90
+            max_write_timeout: 30
+          title: 生成发型效果图
+          type: http-request
+          url: https://quizmesh.tech/salon/internal/hairstyle-preview
+          variables: []
+        id: node_http_hairstyle
+        position:
+          x: 1400
+          y: 100
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      # ── Answer：含效果图（有图分支）────────────────────────────────
+      - data:
+          answer: "{{#node_llm.text#}}\n\n![发型效果预览]({{#node_http_hairstyle.body.preview_url#}})"
+          desc: ''
+          title: Answer（含效果图）
+          type: answer
+          variables: []
+        id: node_answer_img
+        position:
+          x: 1660
+          y: 100
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      # ── Answer：纯文字（无图分支）──────────────────────────────────
       - data:
           answer: '{{#node_llm.text#}}'
           desc: ''
           title: Answer
           type: answer
           variables: []
-        id: node_answer
+        id: node_answer_text
         position:
-          x: 1280
-          y: 282
+          x: 1400
+          y: 500
         sourcePosition: right
         targetPosition: left
         type: custom

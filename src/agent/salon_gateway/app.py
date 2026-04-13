@@ -19,7 +19,9 @@ from salon_gateway.ingress.wecom import (
     parse_sender_recipient,
     render_text_reply,
 )
+from salon_gateway.ai.wanxiang import WanxiangClient
 from salon_gateway.models.booking import BookingDraft
+from salon_gateway.models.hairstyle import HairstylePreviewRequest, HairstylePreviewResponse
 from salon_gateway.models.messages import WecomImageInbound, WecomTextInbound
 from salon_gateway.models.simulate import SimulateWecomTextIn
 from salon_gateway.orchestrator.pipeline import SalonPipeline, default_pipeline
@@ -225,6 +227,83 @@ async def internal_booking(
         logger.exception("append_booking failed: {}", e)
         raise HTTPException(status_code=502, detail="sink failed") from e
     return {"ok": True, "dedup": False, "complete": True}
+
+
+@app.post("/internal/hairstyle-preview")
+async def internal_hairstyle_preview(
+    body: HairstylePreviewRequest,
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> HairstylePreviewResponse:
+    """调用通义万相对用户照片进行发型效果重绘，返回效果图 URL。
+
+    鉴权与 POST /internal/booking 相同（Bearer 或 X-Salon-Token）。
+
+    注意：image_url 须为 DashScope 可公开拉取的 HTTPS URL。
+    若图片来自 Dify 内部存储（local_file），请先转存至 OSS 再传入。
+    生成耗时约 10–30 秒，Dify HTTP 节点 read_timeout 须设置 ≥ 90s。
+    """
+    settings = get_settings()
+    _auth_internal(settings, authorization, x_salon_token)
+
+    if not settings.dashscope_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="hairstyle preview disabled: set SALON_DASHSCOPE_API_KEY to enable",
+        )
+    if not body.image_url:
+        raise HTTPException(status_code=400, detail="image_url is required")
+
+    logger.info(
+        "hairstyle_preview: conversation_id={} style_prompt={!r}",
+        body.conversation_id or "(none)",
+        body.style_prompt[:80] if body.style_prompt else "",
+    )
+    client = WanxiangClient(settings.dashscope_api_key, settings.wanxiang_model)
+    try:
+        result = await client.generate_hairstyle(body.image_url, body.style_prompt)
+    except TimeoutError as e:
+        logger.warning("hairstyle_preview: timeout conversation_id={}: {}", body.conversation_id, e)
+        raise HTTPException(status_code=504, detail="image generation timed out") from e
+    except Exception as e:
+        logger.exception("hairstyle_preview: failed conversation_id={}: {}", body.conversation_id, e)
+        raise HTTPException(status_code=502, detail="image generation failed") from e
+
+    logger.info(
+        "hairstyle_preview: done task_id={} preview_url={}",
+        result.task_id,
+        result.preview_url,
+    )
+    return HairstylePreviewResponse(preview_url=result.preview_url, task_id=result.task_id)
+
+
+@app.get("/internal/booking-options")
+async def internal_booking_options(
+    request: Request,
+    store_q: str = Query(default="", description="门店单选：按名称子串过滤（不区分大小写）"),
+    service_q: str = Query(default="", description="项目多选：按名称子串过滤"),
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> dict[str, object]:
+    """飞书多维表中「门店」单选、「项目」多选的可选值，供前端/Dify 做下拉与搜索。
+
+    列名来自 SALON_FEISHU_FIELD_MAP_JSON 的 store / service 键对应飞书列名。
+    鉴权与 POST /internal/booking 相同（Bearer 或 X-Salon-Token）。
+    """
+    settings = get_settings()
+    logger.info(
+        "internal_booking_options: raw_Authorization_present={}",
+        request.headers.get("authorization") is not None,
+    )
+    _auth_internal(settings, authorization, x_salon_token)
+    sink = _get_sink(settings)
+    if not isinstance(sink, FeishuBitableSink):
+        raise HTTPException(status_code=404, detail="feishu not configured")
+    try:
+        return await sink.booking_field_options(store_search=store_q, service_search=service_q)
+    except Exception as e:
+        logger.exception("booking_field_options failed: {}", e)
+        raise HTTPException(status_code=502, detail="feishu fields failed") from e
 
 
 @app.post("/simulate/wecom-text")
