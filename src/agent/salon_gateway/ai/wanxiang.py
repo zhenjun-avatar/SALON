@@ -32,6 +32,33 @@ def _key_fingerprint(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:12]
 
 
+# 方案里若出现这些词，模型仍常「保长发只改卷/色」——需额外强调几何剪短。
+_SHORT_LENGTH_HINTS_ZH = (
+    "齐耳", "短发", "耳上", "耳边", "超短", "寸发", "精灵短", "波波", "bob头", "妹妹头",
+)
+_SHORT_LENGTH_HINTS_EN = ("bob", "pixie", "ear-length", "short haircut", "above-the-ear")
+
+
+def _short_length_emphasis(style: str) -> str:
+    """当用户明确要短时，加强「必须剪短」指令（图生图默认易保留原长发）。"""
+    t = style.strip()
+    low = t.lower()
+    if any(k in t for k in _SHORT_LENGTH_HINTS_ZH):
+        hit = True
+    elif any(k in low for k in _SHORT_LENGTH_HINTS_EN):
+        hit = True
+    else:
+        hit = False
+    if not hit:
+        return ""
+    return (
+        "LENGTH IS NON-NEGOTIABLE: The text requires SHORT hair (e.g. ear-length bob). "
+        "You MUST remove visible length below the jaw/ears—do NOT keep shoulder or chest-length hair. "
+        "Treat this as a real haircut: mass and silhouette shrink to match the described length. "
+        "若写齐耳/短发，成品必须是明显短发轮廓，禁止仅把长发烫卷或改色。"
+    )
+
+
 def build_hairstyle_prompt(style_description: str) -> str:
     """构造万相发型编辑专用 prompt：英文主体 + 明确约束 + 中文补充。"""
     desc = (style_description or "").strip()
@@ -41,11 +68,15 @@ def build_hairstyle_prompt(style_description: str) -> str:
             "Do NOT change face, skin tone, makeup, eyes, nose, mouth, body, clothing, or background. "
             "Result must look like a real salon photo, natural and realistic."
         )
+    length_block = _short_length_emphasis(desc)
+    if length_block:
+        length_block = length_block + " "
     return (
         "Professional hair salon makeover. "
         "TARGET (change ONLY these): hair length, hair shape, hairstyle, hair color, hair texture, bangs. "
         "PRESERVE (do NOT change anything else): face shape, facial features, skin tone, eye color, "
         "makeup, ears, neck, body, clothing, accessories, background, lighting. "
+        f"{length_block}"
         f"Hair style to apply: {desc}. "
         "The transformation must be photorealistic, like a professional before-after salon photo. "
         "Hair color transition should be smooth and natural, not artificial or painted-looking. "
