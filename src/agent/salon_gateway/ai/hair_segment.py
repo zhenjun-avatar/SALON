@@ -42,14 +42,27 @@ def _to_jpeg_bytes(img: Image.Image, quality: int = 85) -> bytes:
     return buf.getvalue()
 
 
-def _rgba_to_mask_data_uri(rgba_bytes: bytes) -> str:
+def _rgba_to_mask_data_uri(
+    rgba_bytes: bytes,
+    target_size: tuple[int, int] | None = None,
+) -> str:
     """从 SegmentHair 返回的 RGBA PNG 提取 alpha 通道作为发区 mask data URI。
 
     万相 description_edit_with_mask 需要：白色 = 编辑区（头发），黑色 = 保留区。
     SegmentHair alpha 通道：255=头发，0=背景，完全对应。
+
+    target_size: 与万相 base_image 一致的 (W, H)。Segment 返回的图可能小于该尺寸或与
+    内部分辨率不一致，万相会报 width 须在 512–4096；此处强制对齐到 base 尺寸。
     """
     rgba_img = Image.open(io.BytesIO(rgba_bytes)).convert("RGBA")
     _, _, _, alpha = rgba_img.split()  # 提取 alpha 通道
+    if target_size is not None and alpha.size != target_size:
+        logger.info(
+            "hair_segment: resize mask {} → {} to match base",
+            alpha.size,
+            target_size,
+        )
+        alpha = alpha.resize(target_size, Image.NEAREST)
     buf = io.BytesIO()
     alpha.save(buf, format="PNG")
     b64 = base64.standard_b64encode(buf.getvalue()).decode("ascii")
@@ -133,6 +146,7 @@ class HairSegmentClient:
         img = Image.open(io.BytesIO(image_bytes))
         from PIL import ImageOps
         img = ImageOps.exif_transpose(img)
+        base_size = img.size  # 与万相 base_image 像素一致，mask 最终须与此对齐
         img = _resize_for_segment(img)
         jpeg_bytes = _to_jpeg_bytes(img)
         if len(jpeg_bytes) > _SEGMENT_MAX_BYTES:
@@ -163,6 +177,6 @@ class HairSegmentClient:
             r.raise_for_status()
             rgba_bytes = r.content
 
-        mask_uri = _rgba_to_mask_data_uri(rgba_bytes)
+        mask_uri = _rgba_to_mask_data_uri(rgba_bytes, target_size=base_size)
         logger.info("hair_segment: mask data URI len={}", len(mask_uri))
         return mask_uri

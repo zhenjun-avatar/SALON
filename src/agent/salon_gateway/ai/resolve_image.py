@@ -137,6 +137,38 @@ async def resolve_base_image_for_dashscope(url: str, settings: SalonGatewaySetti
 
     parsed = urlparse(u)
     host = (parsed.hostname or "").lower()
+    scheme = (parsed.scheme or "").lower()
+
+    # 公网 HTTPS 若直接交给万相拉取，小图仍会触发 InvalidParameter（宽/高 512–4096）。
+    # 能成功下载则转为规范化后的 data URI，避免与 mask 路径不一致。
+    if scheme in ("http", "https") and not _is_dify_cdn_host(host):
+        try:
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+                r = await client.get(u)
+                r.raise_for_status()
+                data = r.content
+        except Exception as e:
+            logger.warning(
+                "resolve_base_image: could not fetch non-Dify URL host={} (pass-through): {}",
+                host,
+                e,
+            )
+            return u
+        if len(data) > _MAX_BYTES:
+            raise ValueError(f"image too large: {len(data)} bytes (max {_MAX_BYTES})")
+        ct = (r.headers.get("content-type") or "").split(";")[0].strip().lower()
+        if not ct.startswith("image/"):
+            ct = _DEFAULT_MIME
+        data, ct = _ensure_valid_dimensions(data, ct)
+        b64 = base64.standard_b64encode(data).decode("ascii")
+        logger.info(
+            "resolved HTTPS image to data URI: host={} bytes={} mime={}",
+            host,
+            len(data),
+            ct,
+        )
+        return f"data:{ct};base64,{b64}"
+
     if not _is_dify_cdn_host(host):
         return u
 
