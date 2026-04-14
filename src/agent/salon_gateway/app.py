@@ -22,6 +22,7 @@ from salon_gateway.ingress.wecom import (
 )
 from salon_gateway.ai.hair_segment import HairSegmentClient
 from salon_gateway.ai.resolve_image import resolve_base_image_for_dashscope
+from salon_gateway.ai.wan27_image import Wan27ImageClient
 from salon_gateway.ai.wanxiang import WanxiangClient
 from salon_gateway.models.booking import BookingDraft
 from salon_gateway.models.hairstyle import HairstylePreviewRequest, HairstylePreviewResponse
@@ -299,6 +300,9 @@ async def internal_hairstyle_preview(
     image_url 可为公网 HTTPS，或 Dify 的 upload.dify.ai 预览链（网关会用
     SALON_DIFY_API_KEY 下载并转为 data URI 再提交万相）。
     生成耗时约 10–30 秒，Dify HTTP 节点 read_timeout 须设置 ≥ 90s。
+
+    SALON_WANXIANG_MODEL=wan2.7-image 或 wan2.7-image-pro 时走万相 2.7 多模态编辑（无 mask）；
+    默认 wanx2.1-imageedit 可走 SegmentHair + description_edit_with_mask。
     """
     settings = get_settings()
     _auth_internal(settings, authorization, x_salon_token)
@@ -329,25 +333,42 @@ async def internal_hairstyle_preview(
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
-    segment_client: HairSegmentClient | None = None
-    if settings.aliyun_access_key_id and settings.aliyun_access_key_secret:
-        segment_client = HairSegmentClient(
-            settings.aliyun_access_key_id,
-            settings.aliyun_access_key_secret,
-            settings.aliyun_imageseg_region,
-        )
-        logger.info("hairstyle_preview: SegmentHair enabled (mask mode)")
-    else:
-        logger.info("hairstyle_preview: SegmentHair not configured, using description_edit fallback")
+    model_id = (settings.wanxiang_model or "").strip()
+    use_wan27 = model_id.lower() in ("wan2.7-image", "wan2.7-image-pro")
 
-    client = WanxiangClient(
-        settings.dashscope_api_key,
-        settings.wanxiang_model,
-        settings.dashscope_base_url,
-        hair_segment_client=segment_client,
-    )
     try:
-        result = await client.generate_hairstyle(base_image, style_prompt)
+        if use_wan27:
+            logger.info(
+                "hairstyle_preview: Wan 2.7 multimodal edit model={} (no SegmentHair mask)",
+                model_id,
+            )
+            client27 = Wan27ImageClient(
+                settings.dashscope_api_key,
+                model_id,
+                settings.dashscope_base_url,
+            )
+            result = await client27.generate_hairstyle(base_image, style_prompt)
+        else:
+            segment_client: HairSegmentClient | None = None
+            if settings.aliyun_access_key_id and settings.aliyun_access_key_secret:
+                segment_client = HairSegmentClient(
+                    settings.aliyun_access_key_id,
+                    settings.aliyun_access_key_secret,
+                    settings.aliyun_imageseg_region,
+                )
+                logger.info("hairstyle_preview: SegmentHair enabled (mask mode)")
+            else:
+                logger.info(
+                    "hairstyle_preview: SegmentHair not configured, using description_edit fallback"
+                )
+
+            client = WanxiangClient(
+                settings.dashscope_api_key,
+                model_id,
+                settings.dashscope_base_url,
+                hair_segment_client=segment_client,
+            )
+            result = await client.generate_hairstyle(base_image, style_prompt)
     except TimeoutError as e:
         logger.warning("hairstyle_preview: timeout conversation_id={}: {}", body.conversation_id, e)
         raise HTTPException(status_code=504, detail="image generation timed out") from e

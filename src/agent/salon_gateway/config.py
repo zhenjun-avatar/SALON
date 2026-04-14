@@ -91,7 +91,10 @@ class SalonGatewaySettings(BaseSettings):
     )
     wanxiang_model: str = Field(
         default="wanx2.1-imageedit",
-        description="通义万相图像编辑模型名称",
+        description=(
+            "发型预览后端：wanx2.1-imageedit（image-synthesis + 可选 SegmentHair mask）；"
+            "或 wan2.7-image / wan2.7-image-pro（multimodal-generation 图+文编辑，无 mask）"
+        ),
     )
     dashscope_base_url: str = Field(
         default="https://dashscope.aliyuncs.com/api/v1",
