@@ -2,7 +2,7 @@
 
 流程：
     1. 将用户图片（bytes）压缩到 SegmentHair 限制（≤2000×2000, ≤3MB）
-    2. Base64 编码后 POST SegmentHair API
+    2. 通过 SDK SegmentHairAdvanceRequest（内存 JPEG 流）调用 segment_hair_advance
     3. 下载返回的 RGBA PNG，提取 alpha 通道作为二值化发区 mask
     4. 返回 data:image/png;base64,... 字符串
 
@@ -56,27 +56,59 @@ def _rgba_to_mask_data_uri(rgba_bytes: bytes) -> str:
     return f"data:image/png;base64,{b64}"
 
 
+def _extract_segment_hair_image_url(response: object) -> str:
+    """从 SegmentHair 响应中取结果图 URL（OpenAPI：Data.Elements[0].ImageURL）。"""
+    body = getattr(response, "body", response)
+    data = getattr(body, "data", None)
+    if data is None:
+        raise RuntimeError(f"SegmentHair: missing body.data: {body!r}")
+
+    elements = getattr(data, "elements", None)
+    if elements:
+        el = elements[0]
+        url = getattr(el, "image_url", None) or getattr(el, "imageURL", None)
+        if url:
+            return str(url)
+
+    # 少数 SDK 版本可能扁平化字段
+    flat = getattr(data, "image_url", None)
+    if flat:
+        return str(flat)
+
+    raise RuntimeError(f"SegmentHair: no result URL in response data: {data!r}")
+
+
 def _call_segment_hair_sync(
     access_key_id: str,
     access_key_secret: str,
     region: str,
-    image_base64: str,
+    image_jpeg_bytes: bytes,
 ) -> str:
-    """同步调用 SegmentHair（在 executor 线程里执行）。返回 mask RGBA PNG URL。"""
+    """同步调用 SegmentHair（在 executor 线程里执行）。返回 mask RGBA PNG URL。
+
+    当前 alibabacloud-imageseg20191230 的 SegmentHairRequest 仅支持公网 ImageURL，
+    本地/内存图片须用 SegmentHairAdvanceRequest + image_urlobject + segment_hair_advance。
+    参考：https://help.aliyun.com/zh/viapi/use-cases/division-of-hair
+    """
     from alibabacloud_imageseg20191230.client import Client
-    from alibabacloud_imageseg20191230 import models as seg_models
+    from alibabacloud_imageseg20191230.models import SegmentHairAdvanceRequest
     from alibabacloud_tea_openapi import models as oa_models
+    from alibabacloud_tea_util.models import RuntimeOptions
 
     config = oa_models.Config(
         access_key_id=access_key_id,
         access_key_secret=access_key_secret,
+        endpoint=f"imageseg.{region}.aliyuncs.com",
+        region_id=region,
     )
-    config.endpoint = f"imageseg.{region}.aliyuncs.com"
     client = Client(config)
 
-    request = seg_models.SegmentHairRequest(image_base64=image_base64)
-    response = client.segment_hair(request)
-    return response.body.data.image_url  # 30 分钟有效的 RGBA PNG URL
+    req = SegmentHairAdvanceRequest()
+    req.image_urlobject = io.BytesIO(image_jpeg_bytes)
+
+    runtime = RuntimeOptions()
+    response = client.segment_hair_advance(req, runtime)
+    return _extract_segment_hair_image_url(response)
 
 
 class HairSegmentClient:
@@ -107,9 +139,8 @@ class HairSegmentClient:
             # 降质再试一次
             jpeg_bytes = _to_jpeg_bytes(img, quality=70)
 
-        b64 = base64.standard_b64encode(jpeg_bytes).decode("ascii")
         logger.debug(
-            "hair_segment: calling SegmentHair size={}B region={}",
+            "hair_segment: calling SegmentHair advance size={}B region={}",
             len(jpeg_bytes),
             self._region,
         )
@@ -121,7 +152,7 @@ class HairSegmentClient:
             self._ak_id,
             self._ak_sec,
             self._region,
-            b64,
+            jpeg_bytes,
         )
         mask_url: str = await loop.run_in_executor(None, fn)
         logger.info("hair_segment: mask_url={}", mask_url[:80])
