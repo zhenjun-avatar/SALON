@@ -18,3 +18,8 @@ echo "SALON_DASHSCOPE_BASE_URL=https://dashscope-intl.aliyuncs.com/api/v1" \
 
 cd /home/ecs-user/SOLAN/SALON && git pull
 sudo systemctl restart salon-gateway.service
+
+SALON_WANXIANG_MODEL=wan2.7-image
+# 或
+#SALON_WANXIANG_MODEL=wan2.7-image-pro
+#SALON_WANXIANG_MODEL=wanx2.1-imageedit
