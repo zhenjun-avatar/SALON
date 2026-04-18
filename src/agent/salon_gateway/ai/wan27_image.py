@@ -15,7 +15,6 @@ from typing import Any
 
 import httpx
 from loguru import logger
-
 from salon_gateway.ai.wanxiang import HairstyleResult, build_hairstyle_prompt
 
 _DEFAULT_BASE = "https://dashscope.aliyuncs.com/api/v1"
@@ -61,21 +60,12 @@ class Wan27ImageClient:
         self._model = model
         self._base = base_url.rstrip("/")
 
-    async def edit_with_prompt(self, image_ref: str, prompt: str) -> HairstyleResult:
-        """万相 2.7 多模态编辑：直接使用完整英文/中文 prompt（家居示意等）。"""
+    async def _post_multimodal_user(self, content: list[dict[str, Any]]) -> HairstyleResult:
+        if not content:
+            raise ValueError("multimodal content must not be empty")
         payload: dict[str, Any] = {
             "model": self._model,
-            "input": {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"image": image_ref},
-                            {"text": prompt},
-                        ],
-                    }
-                ]
-            },
+            "input": {"messages": [{"role": "user", "content": content}]},
             "parameters": {
                 "size": "2K",
                 "n": 1,
@@ -127,6 +117,18 @@ class Wan27ImageClient:
             return HairstyleResult(preview_url=preview_url, task_id=str(task_id), used_mask=False)
 
         raise RuntimeError(f"wan2.7: unexpected response (no image URL): {data}")
+
+    async def edit_with_prompt(self, image_ref: str, prompt: str) -> HairstyleResult:
+        """万相 2.7 多模态编辑：单图 + 文本。"""
+        return await self._post_multimodal_user([{"image": image_ref}, {"text": prompt}])
+
+    async def edit_with_images(self, image_refs: list[str], prompt: str) -> HairstyleResult:
+        """多图 + 文本：图序由调用方约定（如首张空间、后续为产品参考图）。"""
+        if not image_refs:
+            raise ValueError("image_refs must not be empty")
+        parts: list[dict[str, Any]] = [{"image": r} for r in image_refs]
+        parts.append({"text": prompt})
+        return await self._post_multimodal_user(parts)
 
     async def generate_hairstyle(self, image_ref: str, style_prompt: str) -> HairstyleResult:
         """基于用户图 + 文本生成发型效果图；不使用 SegmentHair mask。"""

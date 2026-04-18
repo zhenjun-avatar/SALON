@@ -1,34 +1,45 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import sys
 from contextlib import asynccontextmanager
+from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
-
 from salon_gateway.ai.dify import DifyChatClient
+from salon_gateway.ai.furnishing_compose_prompt import build_furnishing_compose_prompt
+from salon_gateway.ai.hair_segment import HairSegmentClient
+from salon_gateway.ai.home_furnishing_prompt import build_home_furnishing_prompt
+from salon_gateway.ai.resolve_image import resolve_base_image_for_dashscope
+from salon_gateway.ai.wan27_image import Wan27ImageClient
+from salon_gateway.ai.wanxiang import WanxiangClient
 from salon_gateway.booking.hairstyle_session import HairstyleSessionStore
 from salon_gateway.booking.idempotency import IdempotencyCache
 from salon_gateway.booking.session import BookingSessionStore
 from salon_gateway.config import SalonGatewaySettings, get_settings
+from salon_gateway.furnishing.registry import FurnishingRegistry
 from salon_gateway.ingress.wecom import (
     WecomIngress,
     parse_inbound_message,
     parse_sender_recipient,
     render_text_reply,
 )
-from salon_gateway.ai.hair_segment import HairSegmentClient
-from salon_gateway.ai.home_furnishing_prompt import build_home_furnishing_prompt
-from salon_gateway.ai.resolve_image import resolve_base_image_for_dashscope
-from salon_gateway.ai.wan27_image import Wan27ImageClient
-from salon_gateway.ai.wanxiang import WanxiangClient
 from salon_gateway.models.booking import BookingDraft
 from salon_gateway.models.conversation_image import ConversationImageSnap
-from salon_gateway.models.hairstyle import HairstylePreviewRequest, HairstylePreviewResponse
-from salon_gateway.models.messages import WecomImageInbound, WecomTextInbound
+from salon_gateway.models.furnishing import (
+    FurnishingAssetsListResponse,
+    FurnishingComposePreviewRequest,
+)
+from salon_gateway.models.hairstyle import (
+    HairstylePreviewRequest,
+    HairstylePreviewResponse,
+)
 from salon_gateway.models.simulate import SimulateWecomTextIn
 from salon_gateway.orchestrator.pipeline import SalonPipeline, default_pipeline
 from salon_gateway.sink.feishu import FeishuBitableSink
@@ -41,7 +52,10 @@ _idempotency = IdempotencyCache()
 _booking_sessions = BookingSessionStore()
 _hairstyle_sessions = HairstyleSessionStore()
 
-import hashlib as _hashlib
+
+@lru_cache(maxsize=8)
+def _furnishing_registry_cached(path_key: str) -> FurnishingRegistry:
+    return FurnishingRegistry(Path(path_key))
 
 _DEFAULT_HAIR_STYLE_PROMPT = (
     "专业美发效果图：在保持人物面部与五官自然一致的前提下，"
@@ -150,6 +164,15 @@ async def _lifespan(app: FastAPI):
 
 app = FastAPI(title="Salon gateway (WeCom -> Dify -> Feishu)", lifespan=_lifespan)
 
+# 家居素材库本地 JPG → 公网 HTTPS（与反代前缀一致，如 https://quizmesh.tech/salon/furnishing-asset-files/…）
+_FURNISHING_IMAGES_DIR = Path(__file__).resolve().parent / "data" / "furnishing_images"
+if _FURNISHING_IMAGES_DIR.is_dir():
+    app.mount(
+        "/furnishing-asset-files",
+        StaticFiles(directory=str(_FURNISHING_IMAGES_DIR)),
+        name="furnishing_asset_files",
+    )
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
@@ -172,7 +195,7 @@ async def hairstyle_diag(
     info: dict[str, object] = {
         "dashscope_key_configured": bool(key),
         "dashscope_key_len": len(key),
-        "dashscope_key_sha256_12": _hashlib.sha256(key.encode()).hexdigest()[:12] if key else "",
+        "dashscope_key_sha256_12": hashlib.sha256(key.encode()).hexdigest()[:12] if key else "",
         "wanxiang_model": settings.wanxiang_model,
         "dashscope_base": settings.dashscope_base_url,
     }
@@ -480,6 +503,101 @@ async def internal_home_furnishing_preview(
 
     logger.info(
         "home_furnishing_preview: done task_id={} preview_url={}",
+        result.task_id,
+        result.preview_url,
+    )
+    return HairstylePreviewResponse(preview_url=result.preview_url, task_id=result.task_id)
+
+
+@app.get("/internal/furnishing-assets", response_model=FurnishingAssetsListResponse)
+async def internal_furnishing_assets(
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+    q: str = Query(default="", description="名称 / 标签 / id 子串（不区分大小写）"),
+    category: str = Query(default="", description="category 精确匹配；空=不限"),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> FurnishingAssetsListResponse:
+    """素材库检索（默认 JSON，可换路径见 SALON_FURNISHING_ASSETS_FILE）。鉴权同 internal/booking。"""
+    settings = get_settings()
+    _auth_internal(settings, authorization, x_salon_token)
+    reg = _furnishing_registry_cached(settings.furnishing_assets_path.as_posix())
+    items, total = reg.search(q=q, category=category, limit=limit)
+    return FurnishingAssetsListResponse(items=items, total=total)
+
+
+@app.post("/internal/furnishing-compose-preview")
+async def internal_furnishing_compose_preview(
+    body: FurnishingComposePreviewRequest,
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> HairstylePreviewResponse:
+    """空间参考图 + 多张产品参考图 → 万相 2.7 多图编辑效果图。
+
+    图序：第 1 张为空间底图（room_image_url 或会话缓存）；其后为 product_image_urls。
+    仅支持 ``wan2.7-image`` / ``wan2.7-image-pro``；read_timeout 建议 ≥ 90s。
+    """
+    settings = get_settings()
+    _auth_internal(settings, authorization, x_salon_token)
+
+    if not settings.dashscope_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="compose preview disabled: set SALON_DASHSCOPE_API_KEY to enable",
+        )
+    model_id = (settings.wanxiang_model or "").strip()
+    use_wan27 = model_id.lower() in ("wan2.7-image", "wan2.7-image-pro")
+    if not use_wan27:
+        raise HTTPException(
+            status_code=400,
+            detail="furnishing compose requires SALON_WANXIANG_MODEL=wan2.7-image or wan2.7-image-pro",
+        )
+
+    room_effective = _hairstyle_sessions.resolve(body.conversation_id, body.room_image_url)
+    if not room_effective:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "room_image_url is required (or use POST /internal/conversation-image first "
+                "with the same conversation_id)"
+            ),
+        )
+
+    all_urls = [room_effective, *body.product_image_urls]
+    logger.info(
+        "furnishing_compose_preview: conversation_id={} n_images={}",
+        body.conversation_id or "(none)",
+        len(all_urls),
+    )
+    try:
+        refs = await asyncio.gather(
+            *[resolve_base_image_for_dashscope(u, settings) for u in all_urls]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    prompt = build_furnishing_compose_prompt(
+        n_product_images=len(body.product_image_urls),
+        placement_hint=body.placement_hint,
+        style_notes=body.style_notes,
+    )
+    client27 = Wan27ImageClient(
+        settings.dashscope_api_key,
+        model_id,
+        settings.dashscope_base_url,
+    )
+    try:
+        result = await client27.edit_with_images(list(refs), prompt)
+    except TimeoutError as e:
+        logger.warning("furnishing_compose_preview: timeout: {}", e)
+        raise HTTPException(status_code=504, detail="image generation timed out") from e
+    except Exception as e:
+        logger.exception("furnishing_compose_preview: failed: {}", e)
+        raise HTTPException(status_code=502, detail="image generation failed") from e
+
+    logger.info(
+        "furnishing_compose_preview: done task_id={} preview_url={}",
         result.task_id,
         result.preview_url,
     )

@@ -4,6 +4,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -104,6 +105,11 @@ class SalonGatewaySettings(BaseSettings):
         ),
     )
 
+    furnishing_assets_file: str = Field(
+        default="",
+        description="家居素材库 JSON；空则使用 salon_gateway/data/furnishing_assets.json",
+    )
+
     @field_validator("dashscope_api_key", mode="before")
     @classmethod
     def normalize_dashscope_api_key(cls, v: object) -> str:
@@ -184,6 +190,13 @@ class SalonGatewaySettings(BaseSettings):
         if not v:
             return "http://localhost:5001/v1"
         return v if v.endswith("/v1") else f"{v}/v1"
+
+    @property
+    def furnishing_assets_path(self) -> Path:
+        raw = (self.furnishing_assets_file or "").strip()
+        if raw:
+            return Path(raw).expanduser().resolve()
+        return (_AGENT_ROOT / "salon_gateway" / "data" / "furnishing_assets.json").resolve()
 
 
 @lru_cache

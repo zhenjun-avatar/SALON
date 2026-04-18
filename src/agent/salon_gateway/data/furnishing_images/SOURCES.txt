@@ -1,0 +1,13 @@
+示例素材来源与公网访问
+
+- furnishing_assets.json 中 image_url 为公网 HTTPS，由网关挂载路径提供：
+  https://<你的域名>/<反代前缀>/furnishing-asset-files/<文件名>
+  默认示例与 deploy 中 Dify 一致：quizmesh.tech + 前缀 /salon
+- 原始图片来自 Unsplash（https://unsplash.com/license），本目录 JPG 为下载副本。
+
+1) sofa-living.jpg — Unsplash photo-1555041469-a586c61ea9bc
+2) coffee-table.jpg — Unsplash photo-1530018607912-eff2daa1bac4
+3) dining-chairs.jpg — Unsplash photo-1506439773649-6e9f6d5f14af
+4) bedroom-bedding.jpg — Unsplash photo-1522771739844-6a9f6d5f14af
+
+若公网域名或路径前缀不同，请同步修改 furnishing_assets.json 中的基址。
