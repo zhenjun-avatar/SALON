@@ -1,36 +1,27 @@
-# Dify DSL — 家居效果展示代理（沙发 / 桌椅 / 茶几 / 床上用品）
+# Dify DSL — 家居素材融入空间（无方案推荐）
 #
-# 模式：高级对话（advanced-chat），两步式效果说明（与 Salon v5 思路类似）
+# 模式：advanced-chat
 # ─────────────────────────────────────────────────────────────────────────
-# Turn 1：用户上传空间照片（客厅/卧室等）+ 可选文字（风格、预算、户型）
-#        → GET /internal/furnishing-assets（素材库）→ Code 拼成 SKU 目录
-#        → Vision LLM 结合目录输出三套方案（须优先引用库内 [id]，见系统提示）
-#        → 询问用户想深入看哪一套的「效果展示」
+# 每轮：GET furnishing-assets → 目录 Code → GET conversation-room-image（拉本会话已缓存的实景 URL）
+#       → Merge：本轮上传图优先，否则用缓存 URL 填入 room_image_url；解析 id → 若有空间图且 id 有效则合成
+#       → POST conversation-image（本轮有上传时）→ furnishing-compose-preview
+#       → 否则仅回复目录 + gate_hint（不上生图）
 #
-# Turn 2：用户明确选择某方案（如「方案二」「就第一个」）
-#        → Code 从方案「库:id」解析 product_image_urls → POST /internal/furnishing-compose-preview
-#          （空间图 + 库内产品参考图，万相 2.7 多图编辑；请求体整段由 Code json.dumps 避免引号换行撑坏 JSON）
-#        → 解析 preview_url → 文本 LLM 深化说明 → Answer（文字 + 示意图 Markdown）
-#
-# 首轮会话图缓存：提取图片 URL 后 → POST /internal/conversation-image（与 booking 无关的家居流须写缓存，
-# 否则第二轮确认方案时 image_url 为空无法生图）。
+# 用户用法：上传空间实景图 + 文字列出要融入的 id（逗号/空格均可，最多 4 个），例如
+#   demo-sofa-01 demo-coffee-table-01
+# 若上一轮已上传过图，本轮可只发 id，网关会从会话缓存取房间图。
 #
 # 导入后必做：
-# 1) 「空间分析与三套方案」节点选 Vision 模型（如 qwen-vl-plus / GPT-4o）。
-# 2) 「已确认方案深化」节点选文本模型即可（无需 Vision，省成本）。
-# 3) 「提取家居意图」节点选支持 function-calling / 参数提取的模型。
-# 4) 「拉取素材库」「缓存会话图片」「家居效果示意图（多图合成）」HTTP 节点 → Bearer → 填 SALON_INTERNAL_BOOKING_TOKEN。
-# 5) 「家居效果示意图（多图合成）」HTTP 节点 read timeout ≥ 90s；网关须 SALON_WANXIANG_MODEL=wan2.7-image 或 wan2.7-image-pro。
-# 6) 若网关域名不同，替换四处 URL（含 furnishing-assets）；发布应用并复制 API Key。
-#
-# 后端：需配置 SALON_DASHSCOPE_API_KEY；家居示意推荐 wan2.7-image / wan2.7-image-pro（见网关 env 说明）。
+# 1) 「拉取素材库」「读取缓存空间图URL」「缓存会话图片」「家居素材融入」HTTP → Bearer → SALON_INTERNAL_BOOKING_TOKEN
+# 2) 「家居素材融入」read timeout ≥ 90s；SALON_WANXIANG_MODEL=wan2.7-image 或 wan2.7-image-pro
+# 3) 域名与路径按部署替换
 
 app:
-  description: 家居（沙发、桌椅、茶几、床上用品）效果展示与搭配建议 — Dify Chatflow
+  description: 用户自选素材 SKU，将产品参考图融入上传的空间实景（万相 2.7 多图编辑）
   icon: 🛋️
   icon_background: '#E8F4FD'
   mode: advanced-chat
-  name: 家居效果展示代理
+  name: 家居素材融入空间
   use_icon_as_answer_icon: false
 dependencies: []
 kind: app
@@ -47,8 +38,8 @@ workflow:
           - remote_url
           - local_file
     opening_statement: |-
-      你好，我是家居搭配顾问。请上传客厅或卧室照片（可选说明风格、预算、面积），
-      我会结合素材库 SKU 给出沙发、桌椅、茶几与床上用品的三套编号方案；选定后先生成一张 AI 空间效果示意图，再附文字深化说明。
+      你好。请**上传房间实景图**，并在文字里列出要融入的**素材 id**（与下方「建议问题」或目录一致；逗号/空格分隔，最多 4 个）。
+      仅按你选的素材做多图合成示意。若某轮只发 id、不发图，将自动使用本会话里**上一轮已成功缓存**的实景图作为底图。
     retriever_resource:
       enabled: false
     sensitive_word_avoidance:
@@ -56,9 +47,9 @@ workflow:
     speech_to_text:
       enabled: false
     suggested_questions:
-      - 现代简约客厅，预算中等
-      - 北欧风卧室，想要温馨床品
-      - 小户型，只要沙发和茶几建议
+      - demo-sofa-01 demo-coffee-table-01
+      - demo-chair-01 demo-bedding-01
+      - demo-sofa-01 demo-chair-01 demo-coffee-table-01
     suggested_questions_after_answer:
       enabled: true
     text_to_speech:
@@ -77,60 +68,45 @@ workflow:
         sourceHandle: source
         target: node_code_catalog
         targetHandle: target
-      - id: e-catalog-vision
+      - id: e-catalog-room-cache
         source: node_code_catalog
         sourceHandle: source
-        target: node_llm_vision
+        target: node_http_room_cache
         targetHandle: target
-      - id: e-vision-code
-        source: node_llm_vision
+      - id: e-room-cache-merge
+        source: node_http_room_cache
         sourceHandle: source
-        target: node_code_image
+        target: node_code_merge
         targetHandle: target
-      - id: e-code-http-snap
-        source: node_code_image
+      - id: e-merge-ifelse
+        source: node_code_merge
         sourceHandle: source
+        target: node_ifelse_ready
+        targetHandle: target
+      - id: e-ifelse-snap
+        source: node_ifelse_ready
+        sourceHandle: ready
         target: node_http_snap_image
         targetHandle: target
-      - id: e-snap-extractor
+      - id: e-snap-compose
         source: node_http_snap_image
         sourceHandle: source
-        target: node_extractor
+        target: node_http_compose
         targetHandle: target
-      - id: e-extractor-ifelse
-        source: node_extractor
+      - id: e-compose-parse
+        source: node_http_compose
         sourceHandle: source
-        target: node_ifelse_confirmed
+        target: node_code_parse_preview
         targetHandle: target
-      - id: e-ifelse-resolve-assets
-        source: node_ifelse_confirmed
-        sourceHandle: confirmed
-        target: node_code_resolve_assets
-        targetHandle: target
-      - id: e-resolve-assets-http-home
-        source: node_code_resolve_assets
+      - id: e-parse-answer-done
+        source: node_code_parse_preview
         sourceHandle: source
-        target: node_http_home_preview
+        target: node_answer_done
         targetHandle: target
-      - id: e-home-parse
-        source: node_http_home_preview
-        sourceHandle: source
-        target: node_code_parse_home
-        targetHandle: target
-      - id: e-parse-detail
-        source: node_code_parse_home
-        sourceHandle: source
-        target: node_llm_detail
-        targetHandle: target
-      - id: e-detail-answer
-        source: node_llm_detail
-        sourceHandle: source
-        target: node_answer_detail
-        targetHandle: target
-      - id: e-ifelse-answer-first
-        source: node_ifelse_confirmed
+      - id: e-ifelse-answer-wait
+        source: node_ifelse_ready
         sourceHandle: 'false'
-        target: node_answer_first
+        target: node_answer_wait
         targetHandle: target
 
     nodes:
@@ -161,7 +137,7 @@ workflow:
                 type: text
                 value: '{}'
             type: json
-          desc: 拉取网关素材库 JSON（items 列表），供首轮三套方案优先选配
+          desc: 拉取网关素材库 JSON（items）
           headers: 'Content-Type: application/json'
           method: get
           params: ''
@@ -180,7 +156,7 @@ workflow:
           variables: []
         id: node_http_furnishing_assets
         position:
-          x: 220
+          x: 240
           y: 320
         sourcePosition: right
         targetPosition: left
@@ -194,14 +170,10 @@ workflow:
                 try:
                     data = json.loads(body or "{}")
                 except Exception:
-                    return {
-                        "catalog_text": "（素材库响应非 JSON，本轮仅按照片与文字自由发挥；勿编造货号。）"
-                    }
+                    return {"catalog_text": "（素材库暂不可用，请稍后重试。）"}
                 items = data.get("items")
                 if not isinstance(items, list) or not items:
-                    return {
-                        "catalog_text": "（素材库暂无条目；本轮仅按照片与文字自由发挥；勿编造货号。）"
-                    }
+                    return {"catalog_text": "（素材库暂无条目。）"}
                 lines = []
                 for it in items[:30]:
                     if not isinstance(it, dict):
@@ -217,21 +189,20 @@ workflow:
                         tg = ""
                     if not iid:
                         continue
-                    lines.append(f"- [{iid}] {name} | category={cat} | tags={tg} | image_url={url}")
+                    lines.append(f"- [{iid}] {name} | category={cat} | tags={tg}")
                 if not lines:
-                    return {
-                        "catalog_text": "（素材库无有效 id；本轮仅按照片与文字自由发挥。）"
-                    }
+                    return {"catalog_text": "（素材库无有效 id。）"}
                 block = "\n".join(lines)
                 return {
-                    "catalog_text": "## 可用素材 SKU（优先从中选配具体款；每套方案须含「库:id1,id2,…」）\n"
+                    "catalog_text": "## 可选素材（请从下列 id 中选择，写入回复文字，勿编造 id）\n"
                     + block
+                    + "\n\n**操作**：上传空间照片，并列出要融入的 id（例：`demo-sofa-01 demo-coffee-table-01`，最多 4 个）。"
                 }
           code_language: python3
-          desc: 将 furnishing-assets 的 body 解析为 LLM 可读的 SKU 目录文本
+          desc: 将 furnishing-assets 解析为 Markdown 目录
           outputs:
             catalog_text:
-              description: 素材库目录 Markdown 文本
+              description: 素材目录 Markdown
               type: string
           title: 格式化素材目录
           type: code
@@ -243,70 +214,46 @@ workflow:
               variable: body
         id: node_code_catalog
         position:
-          x: 400
+          x: 420
           y: 320
         sourcePosition: right
         targetPosition: left
         type: custom
 
       - data:
-          context:
-            enabled: false
-            variable_selector: []
-          desc: 结合照片与文字，输出三套家具搭配方案（含沙发、桌椅、茶几、床品）
-          memory:
-            query_prompt_template: '{{#sys.query#}}\n\n{{#sys.files#}}'
-            window:
-              enabled: true
-              size: 20
-          model:
-            completion_params:
-              temperature: 0.55
-            mode: chat
-            name: ''
-            provider: ''
-          prompt_template:
-            - role: system
-              selected: true
-              text: |-
-                你是资深室内与软装顾问，专注中国家庭常见户型。用友好、专业的中文回复。
-
-                {{#node_code_catalog.catalog_text#}}
-
-                【素材库使用规则 — 必须遵守】
-                - 沙发、茶几、桌椅、床品四类中，**每一类至少 1 件**须对应上表中的 SKU（写清方括号内的 id，如 demo-sofa-01）。
-                - 每套方案末尾增加片段「库:id1,id2,…」列出本方案用到的**全部**库内 id（仅写 id，逗号分隔）；若某类确实无合适 SKU，该类写「库外：简述」并说明理由。
-                - 描述款式/颜色/材质时，应与所选 SKU 的名称、tags、category 一致或合理延伸，避免与库图明显矛盾。
-                - 若上表为「暂无条目」类提示语，则三套方案可自由发挥，不强制写「库:」行。
-
-                【品类覆盖】每套方案必须同时涉及以下五类（可合并描述，但不可整类缺失）：
-                1) 沙发  2) 桌椅（餐桌椅或书桌椅，按空间推断）  3) 茶几（或边几替代说明）
-                4) 床上用品（四件套/被芯枕芯风格与色系）  5) 与整体协调的配饰建议（简要即可）
-
-                【第一步：仅输出文字方案；不声称当前已生成图片。用户选定方案后，系统会另行生成 AI 空间效果示意图。】
-                若用户上传了房间/客厅/卧室照片：先简短分析空间（采光、大致面积感、现有硬装色调），
-                再给出三套**编号**搭配方案。每套格式严格如下（每条一行块，便于阅读）：
-
-                  方案一：[整体风格关键词] — 沙发：[…]；桌椅：[…]；茶几：[…]；床品：[…]；亮点：[一句话]；库:id1,id2,…
-                  方案二：…
-                  方案三：…
-
-                若用户**未**上传图片：根据文字描述给出三套方案，并礼貌说明「上传照片可更贴合实际空间」。
-
-                方案末尾固定询问：「您想针对哪一套生成 **AI 空间效果示意图** 并展开详细说明？（回复 方案一 / 方案二 / 方案三 即可）」
-
-                禁止编造具体品牌型号货号；库内款用 id 指代即可。涉及尺寸请写区间或「需现场量尺」，避免虚假精确数字。
-            - role: user
-              selected: true
-              text: "{{#sys.query#}}\n{{#sys.files#}}"
-          title: 空间分析与三套方案
-          type: llm
+          authorization:
+            config:
+              api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
+              header: ''
+              type: bearer
+            type: api-key
+          body:
+            data:
+              - id: json-body-room-cache-get
+                key: ''
+                type: text
+                value: '{}'
+            type: json
+          desc: 读取 POST /internal/conversation-image 已写入的会话空间图 URL（无则 image_url 为空）
+          headers: 'Content-Type: application/json'
+          method: get
+          params: ''
+          retry_config:
+            max_retries: 1
+            retry_enabled: true
+            retry_interval: 400
+          ssl_verify: true
+          timeout:
+            max_connect_timeout: 10
+            max_read_timeout: 20
+            max_write_timeout: 10
+          title: 读取缓存空间图URL
+          type: http-request
+          url: 'https://quizmesh.tech/salon/internal/conversation-room-image?conversation_id={{#sys.conversation_id#}}'
           variables: []
-          vision:
-            enabled: true
-        id: node_llm_vision
+        id: node_http_room_cache
         position:
-          x: 560
+          x: 520
           y: 320
         sourcePosition: right
         targetPosition: left
@@ -314,29 +261,168 @@ workflow:
 
       - data:
           code: |
-            def main(files: list) -> dict:
-                for f in (files or []):
-                    url = (f or {}).get("url") or (f or {}).get("remote_url") or ""
-                    if url:
-                        return {"image_url": url}
-                return {"image_url": ""}
+            import json
+            import re
+
+            def _empty():
+                return {
+                    "compose_body_json": "",
+                    "image_url": "",
+                    "selected_ids_line": "",
+                    "gate_hint": "",
+                    "room_note": "",
+                }
+
+            def main(body: str, query: str, files: list, conversation_id: str, cache_body: str) -> dict:
+                try:
+                    data = json.loads(body or "{}")
+                except Exception:
+                    data = {}
+                items = data.get("items")
+                id_to_url: dict[str, str] = {}
+                if isinstance(items, list):
+                    for it in items:
+                        if not isinstance(it, dict):
+                            continue
+                        iid = str(it.get("id") or "").strip()
+                        u = str(it.get("image_url") or "").strip()
+                        if iid and u:
+                            id_to_url[iid] = u
+                try:
+                    c = json.loads(cache_body or "{}")
+                    cached_url = (c.get("image_url") or "").strip()
+                except Exception:
+                    cached_url = ""
+                image_url = ""
+                for f in files or []:
+                    if not isinstance(f, dict):
+                        continue
+                    u = (f.get("url") or f.get("remote_url") or "").strip()
+                    if u:
+                        image_url = u
+                        break
+                keys = list(id_to_url.keys())
+                if not keys:
+                    return _empty()
+                alt = "|".join(re.escape(k) for k in sorted(keys, key=len, reverse=True))
+                pat = re.compile(alt)
+                q = query or ""
+                selected: list[str] = []
+                for m in pat.finditer(q):
+                    kid = m.group(0)
+                    if kid not in selected:
+                        selected.append(kid)
+                    if len(selected) >= 4:
+                        break
+                if not selected:
+                    return _empty()
+                product_urls = [id_to_url[k] for k in selected if k in id_to_url][:4]
+                if not product_urls:
+                    return _empty()
+                room_effective = (image_url or "").strip() or cached_url
+                if not room_effective:
+                    return {
+                        **_empty(),
+                        "selected_ids_line": ",".join(selected),
+                        "gate_hint": (
+                            "已识别素材 id，但还没有可用的**空间实景图**。"
+                            "请先上传房间照片（可与 id 写在同一条消息）；"
+                            "若上一轮已成功上传并缓存过图，请再发一次 id 或刷新后重试。"
+                        ),
+                    }
+                hint = (
+                    "用户自选素材 id（按出现顺序融入，产品图以参考为准）："
+                    + ",".join(selected)
+                    + "。用户原话摘录："
+                    + (q.strip()[:1500] if q.strip() else "（无）")
+                )
+                payload = {
+                    "room_image_url": room_effective,
+                    "product_image_urls": product_urls,
+                    "style_notes": hint,
+                    "conversation_id": (conversation_id or "").strip(),
+                }
+                room_note = (
+                    "底图：本轮新上传的实景图。"
+                    if (image_url or "").strip()
+                    else "底图：本会话此前缓存的实景图（请求里已填入 room_image_url，便于核对）。"
+                )
+                return {
+                    "compose_body_json": json.dumps(payload, ensure_ascii=False),
+                    "image_url": image_url,
+                    "selected_ids_line": ",".join(selected),
+                    "gate_hint": "",
+                    "room_note": room_note,
+                }
           code_language: python3
-          desc: 从本轮 sys.files 取首张图片 URL，供后续扩展 HTTP 生图节点使用
+          desc: 合并本轮上传图与 GET 缓存 URL 作为 room_image_url；无空间图且有 id 时 gate_hint 提示
           outputs:
-            image_url:
-              description: 当前轮图片 URL，无图为空
+            compose_body_json:
+              description: 非空则进入合成分支
               type: string
-          title: 提取图片URL
+            image_url:
+              description: 本轮首张图 URL（可无）
+              type: string
+            selected_ids_line:
+              description: 已选 id 逗号分隔
+              type: string
+            gate_hint:
+              description: 未合成时的提示（如缺实景图）
+              type: string
+            room_note:
+              description: 合成成功分支用的底图来源说明
+              type: string
+          title: 解析所选素材并组装请求
           type: code
           variables:
+            - label: body
+              value_selector:
+                - node_http_furnishing_assets
+                - body
+              variable: body
+            - label: query
+              value_selector:
+                - sys
+                - query
+              variable: query
             - label: files
               value_selector:
                 - sys
                 - files
               variable: files
-        id: node_code_image
+            - label: conversation_id
+              value_selector:
+                - sys
+                - conversation_id
+              variable: conversation_id
+            - label: cache_body
+              value_selector:
+                - node_http_room_cache
+                - body
+              variable: cache_body
+        id: node_code_merge
         position:
-          x: 720
+          x: 680
+          y: 320
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          cases:
+            - case_id: ready
+              conditions:
+                - comparison_operator: not empty
+                  variable_selector:
+                    - node_code_merge
+                    - compose_body_json
+              logical_operator: and
+          desc: compose_body_json 非空则走合成
+          title: 已选素材?
+          type: if-else
+        id: node_ifelse_ready
+        position:
+          x: 900
           y: 320
         sourcePosition: right
         targetPosition: left
@@ -354,9 +440,9 @@ workflow:
               - id: json-body-snap
                 key: ''
                 type: text
-                value: '{"conversation_id":"{{#sys.conversation_id#}}","image_url":"{{#node_code_image.image_url#}}"}'
+                value: '{"conversation_id":"{{#sys.conversation_id#}}","image_url":"{{#node_code_merge.image_url#}}"}'
             type: json
-          desc: 每轮在提取参数前写入会话参考图 URL，供确认方案后生图时 image_url 为空也能取到首轮照片
+          desc: 有图时写入会话，供 room_image_url 为空时网关补全
           headers: 'Content-Type: application/json'
           method: post
           params: ''
@@ -375,152 +461,8 @@ workflow:
           variables: []
         id: node_http_snap_image
         position:
-          x: 880
-          y: 320
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-
-      - data:
-          desc: 识别用户是否已明确选择某一方案，并抽取风格/空间关键词
-          instruction: |-
-            从当前用户输入并结合最近对话历史判断：
-
-            【confirmed_scheme】
-            - 若用户明确选择某一编号方案（如「方案一」「第二个」「要方案三那种」），
-              请从对话历史中找出该方案的**完整一行描述**（含沙发、桌椅、茶几、床品部分），填入 confirmed_scheme。
-            - 若用户仍在闲聊、首次提问、上传图片但未表态选哪套，则 confirmed_scheme 为空字符串。
-
-            【room_type】客厅 / 卧室 / 书房 / 餐厅 / 全屋 / 未提及 → 填「未提及」或最可能的一类。
-
-            【style_hint】用户提到的风格词（如北欧、奶油风、新中式），没有则空字符串。
-
-            【budget_hint】用户提到的预算（如「五千以内」「精装房」），没有则空字符串。
-          memory:
-            enabled: true
-            window:
-              enabled: true
-              size: 8
-          model:
-            completion_params:
-              temperature: 0.15
-            mode: chat
-            name: ''
-            provider: ''
-          parameters:
-            - description: 用户确认的那套方案的完整文字描述；未确认则空
-              name: confirmed_scheme
-              required: false
-              type: string
-            - description: 空间类型
-              name: room_type
-              required: false
-              type: string
-            - description: 风格关键词
-              name: style_hint
-              required: false
-              type: string
-            - description: 预算或档次描述
-              name: budget_hint
-              required: false
-              type: string
-          query:
-            - sys
-            - query
-          reasoning_mode: prompt
-          title: 提取家居意图
-          type: parameter-extractor
-        id: node_extractor
-        position:
-          x: 1100
-          y: 320
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-
-      - data:
-          cases:
-            - case_id: confirmed
-              conditions:
-                - comparison_operator: not empty
-                  variable_selector:
-                    - node_extractor
-                    - confirmed_scheme
-              logical_operator: and
-          desc: 已选方案则先生成效果示意图，再文本深化；否则只回复首轮分析
-          title: 已选方案?
-          type: if-else
-        id: node_ifelse_confirmed
-        position:
-          x: 1320
-          y: 320
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-
-      - data:
-          code: |
-            import json, re
-
-            # 素材库 id → 公网图片 URL（与 furnishing_assets.json 的 image_url 保持一致）
-            _ID_TO_URL = {
-                "demo-sofa-01":         "https://quizmesh.tech/salon/furnishing-asset-files/sofa-living.jpg",
-                "demo-coffee-table-01": "https://quizmesh.tech/salon/furnishing-asset-files/coffee-table.jpg",
-                "demo-chair-01":        "https://quizmesh.tech/salon/furnishing-asset-files/dining-chairs.jpg",
-                "demo-bedding-01":      "https://quizmesh.tech/salon/furnishing-asset-files/bedroom-bedding.jpg",
-            }
-
-            def main(confirmed_scheme: str, image_url: str, conversation_id: str) -> dict:
-                urls: list[str] = []
-                for m in re.finditer(r"库[:：]\s*([^\n\r]+)", confirmed_scheme or ""):
-                    for raw_id in m.group(1).split(","):
-                        eid = raw_id.strip().strip("[]").strip()
-                        u = _ID_TO_URL.get(eid)
-                        if u and u not in urls:
-                            urls.append(u)
-                        if len(urls) >= 4:
-                            break
-                if not urls:
-                    urls = list(_ID_TO_URL.values())[:4]
-                notes = (confirmed_scheme or "").strip()
-                if len(notes) > 12000:
-                    notes = notes[:12000] + "…"
-                payload = {
-                    "room_image_url": (image_url or "").strip(),
-                    "product_image_urls": urls,
-                    "style_notes": notes,
-                    "conversation_id": (conversation_id or "").strip(),
-                }
-                # 整段 JSON 交给 HTTP 节点，避免在 DSL 里直接拼 confirmed_scheme 导致引号/换行破坏 JSON
-                return {"compose_body_json": json.dumps(payload, ensure_ascii=False)}
-          code_language: python3
-          desc: 解析「库:id」→ product_image_urls；用 json.dumps 生成 furnishing-compose-preview 完整请求体
-          outputs:
-            compose_body_json:
-              description: POST /internal/furnishing-compose-preview 的 JSON 字符串（已转义）
-              type: string
-          title: 组装合成请求JSON
-          type: code
-          variables:
-            - label: confirmed_scheme
-              value_selector:
-                - node_extractor
-                - confirmed_scheme
-              variable: confirmed_scheme
-            - label: image_url
-              value_selector:
-                - node_code_image
-                - image_url
-              variable: image_url
-            - label: conversation_id
-              value_selector:
-                - sys
-                - conversation_id
-              variable: conversation_id
-        id: node_code_resolve_assets
-        position:
-          x: 1540
-          y: 140
+          x: 1040
+          y: 200
         sourcePosition: right
         targetPosition: left
         type: custom
@@ -534,16 +476,12 @@ workflow:
             type: api-key
           body:
             data:
-              - id: json-body-compose-preview
+              - id: json-body-compose
                 key: ''
                 type: text
-                value: '{{#node_code_resolve_assets.compose_body_json#}}'
+                value: '{{#node_code_merge.compose_body_json#}}'
             type: json
-          desc: |-
-            调用网关 furnishing-compose-preview（万相 2.7 多图编辑），
-            将空间参考图 + 库内产品参考图合成家居效果示意图（约 30–90s）。
-            room_image_url 为空时由网关从会话缓存补全首轮上传的房间图。
-            ⚠ 导入后请将 read timeout 改为 90s。
+          desc: 空间 + 产品参考图多图编辑（万相 2.7）
           headers: 'Content-Type: application/json'
           method: post
           params: ''
@@ -556,14 +494,14 @@ workflow:
             max_connect_timeout: 10
             max_read_timeout: 90
             max_write_timeout: 30
-          title: 家居效果示意图（多图合成）
+          title: 家居素材融入（多图合成）
           type: http-request
           url: https://quizmesh.tech/salon/internal/furnishing-compose-preview
           variables: []
-        id: node_http_home_preview
+        id: node_http_compose
         position:
-          x: 1760
-          y: 140
+          x: 1260
+          y: 200
         sourcePosition: right
         targetPosition: left
         type: custom
@@ -571,6 +509,7 @@ workflow:
       - data:
           code: |
             import json
+
             def main(body: str) -> dict:
                 try:
                     data = json.loads(body or "{}")
@@ -579,108 +518,59 @@ workflow:
                     url = ""
                 return {"preview_url": url}
           code_language: python3
-          desc: 解析 home-furnishing-preview 返回 JSON 中的 preview_url
+          desc: 解析 preview_url
           outputs:
             preview_url:
-              description: 效果示意图 URL
+              description: 合成图 URL
               type: string
-          title: 解析示意图URL
+          title: 解析合成图URL
           type: code
           variables:
             - label: body
               value_selector:
-                - node_http_home_preview
+                - node_http_compose
                 - body
               variable: body
-        id: node_code_parse_home
+        id: node_code_parse_preview
         position:
-          x: 1760
-          y: 140
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-
-      - data:
-          context:
-            enabled: false
-            variable_selector: []
-          desc: 对已选方案做详细效果展示（文字化「效果图」叙述 + 清单）
-          memory:
-            enabled: true
-            window:
-              enabled: true
-              size: 12
-          model:
-            completion_params:
-              temperature: 0.45
-            mode: chat
-            name: ''
-            provider: ''
-          prompt_template:
-            - role: system
-              selected: true
-              text: |-
-                你是软装深化顾问。用户已从上一轮对话中**确认**了以下方案（请严格以其为主线，不要改选其他方案）：
-
-                【已确认方案】
-                {{#node_extractor.confirmed_scheme#}}
-
-                【用户补充】空间：{{#node_extractor.room_type#}}；风格线索：{{#node_extractor.style_hint#}}；预算线索：{{#node_extractor.budget_hint#}}
-
-                请输出结构化「效果展示」，必须包含以下 Markdown 小节（标题用 ##）：
-                ## 整体氛围与配色
-                ## 空间布局与动线（结合沙发、茶几、桌椅位置关系文字描述）
-                ## 分品类细化（沙发 / 桌椅 / 茶几 / 床上用品 — 各一小段：款式、材质、色值倾向、搭配理由）
-                ## 软装与灯光建议（简要）
-                ## 采购与落地提示（可写「需量尺」「建议线下看样」，不要编造具体购买链接）
-
-                语气专业、可执行。本轮回复末尾会附上「AI 空间效果示意图」链接（由上游生图服务生成），
-                请在文中简要说明该图为示意参考，实际效果以线下选材与施工为准。
-            - role: user
-              selected: true
-              text: '{{#sys.query#}}'
-          title: 已确认方案深化
-          type: llm
-          variables: []
-          vision:
-            enabled: false
-        id: node_llm_detail
-        position:
-          x: 1980
-          y: 140
+          x: 1480
+          y: 200
         sourcePosition: right
         targetPosition: left
         type: custom
 
       - data:
           answer: |-
-            {{#node_llm_detail.text#}}
+            {{#node_code_catalog.catalog_text#}}
 
-            ---
-            **AI 空间效果示意图（示意参考）**
-            ![]({{#node_code_parse_home.preview_url#}})
+            {{#node_code_merge.gate_hint#}}
           desc: ''
-          title: Answer（深化+示意图）
+          title: Answer（待选素材）
           type: answer
           variables: []
-        id: node_answer_detail
+        id: node_answer_wait
         position:
-          x: 2200
-          y: 140
+          x: 1040
+          y: 440
         sourcePosition: right
         targetPosition: left
         type: custom
 
       - data:
-          answer: '{{#node_llm_vision.text#}}'
+          answer: |-
+            {{#node_code_merge.room_note#}}
+
+            已按所选素材 **{{#node_code_merge.selected_ids_line#}}** 与上述底图完成多图合成示意（AI 参考，非实景承诺）。
+
+            ![]({{#node_code_parse_preview.preview_url#}})
           desc: ''
-          title: Answer（首轮）
+          title: Answer（合成结果）
           type: answer
           variables: []
-        id: node_answer_first
+        id: node_answer_done
         position:
-          x: 1540
-          y: 480
+          x: 1700
+          y: 200
         sourcePosition: right
         targetPosition: left
         type: custom

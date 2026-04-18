@@ -429,6 +429,24 @@ async def internal_conversation_image(
     return {"ok": True}
 
 
+@app.get("/internal/conversation-room-image")
+async def internal_conversation_room_image(
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+    conversation_id: str = Query(
+        default="",
+        max_length=200,
+        description="Dify 会话 ID；返回此前 POST /internal/conversation-image 写入的 room URL（无则空）",
+    ),
+) -> dict[str, str]:
+    """供 Dify Code 前一轮拉取「已缓存的空间图 URL」，便于请求体里带上非空的 room_image_url。"""
+    settings = get_settings()
+    _auth_internal(settings, authorization, x_salon_token)
+    cid = (conversation_id or "").strip()
+    url = _hairstyle_sessions.get(cid) if cid else ""
+    return {"image_url": url or ""}
+
+
 @app.post("/internal/home-furnishing-preview")
 async def internal_home_furnishing_preview(
     body: HairstylePreviewRequest,
