@@ -21,10 +21,12 @@ from salon_gateway.ingress.wecom import (
     render_text_reply,
 )
 from salon_gateway.ai.hair_segment import HairSegmentClient
+from salon_gateway.ai.home_furnishing_prompt import build_home_furnishing_prompt
 from salon_gateway.ai.resolve_image import resolve_base_image_for_dashscope
 from salon_gateway.ai.wan27_image import Wan27ImageClient
 from salon_gateway.ai.wanxiang import WanxiangClient
 from salon_gateway.models.booking import BookingDraft
+from salon_gateway.models.conversation_image import ConversationImageSnap
 from salon_gateway.models.hairstyle import HairstylePreviewRequest, HairstylePreviewResponse
 from salon_gateway.models.messages import WecomImageInbound, WecomTextInbound
 from salon_gateway.models.simulate import SimulateWecomTextIn
@@ -378,6 +380,106 @@ async def internal_hairstyle_preview(
 
     logger.info(
         "hairstyle_preview: done task_id={} preview_url={}",
+        result.task_id,
+        result.preview_url,
+    )
+    return HairstylePreviewResponse(preview_url=result.preview_url, task_id=result.task_id)
+
+
+@app.post("/internal/conversation-image")
+async def internal_conversation_image(
+    body: ConversationImageSnap,
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> dict[str, bool]:
+    """缓存本轮会话的空间/人物参考图 URL，供后续轮次 HTTP 节点 image_url 为空时补全。
+
+    家居 Chatflow 首轮不经过 booking，需单独调用本接口写入 HairstyleSessionStore。
+    鉴权与 POST /internal/booking 相同。
+    """
+    settings = get_settings()
+    _auth_internal(settings, authorization, x_salon_token)
+    cid = (body.conversation_id or "").strip()
+    url = (body.image_url or "").strip()
+    if cid and url:
+        _hairstyle_sessions.save(cid, url)
+    return {"ok": True}
+
+
+@app.post("/internal/home-furnishing-preview")
+async def internal_home_furnishing_preview(
+    body: HairstylePreviewRequest,
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> HairstylePreviewResponse:
+    """根据已确认的软装方案，对房间参考图做「效果示意」重绘（通义万相）。
+
+    请求体与 /internal/hairstyle-preview 相同：image_url、style_prompt（此处为整套方案中文描述）、conversation_id。
+    image_url 为空时从会话缓存读取（须先由 POST /internal/conversation-image 或含图的首轮请求写入）。
+
+    推荐使用 wan2.7-image / wan2.7-image-pro；wanx2.1-imageedit 走 description_edit 无 mask。
+    鉴权与发型接口相同；Dify HTTP 节点 read_timeout 建议 ≥ 90s。
+    """
+    settings = get_settings()
+    _auth_internal(settings, authorization, x_salon_token)
+
+    if not settings.dashscope_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="home furnishing preview disabled: set SALON_DASHSCOPE_API_KEY to enable",
+        )
+    scheme = (body.style_prompt or "").strip()
+    if not scheme:
+        raise HTTPException(status_code=400, detail="style_prompt (confirmed scheme) is required")
+
+    logger.info(
+        "home_furnishing_preview: conversation_id={} scheme_len={}",
+        body.conversation_id or "(none)",
+        len(scheme),
+    )
+    effective_url = _hairstyle_sessions.resolve(body.conversation_id, body.image_url)
+    if not effective_url:
+        raise HTTPException(
+            status_code=400,
+            detail="image_url is required (no image in current or previous turns of this conversation)",
+        )
+
+    try:
+        base_image = await resolve_base_image_for_dashscope(effective_url, settings)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    model_id = (settings.wanxiang_model or "").strip()
+    use_wan27 = model_id.lower() in ("wan2.7-image", "wan2.7-image-pro")
+
+    try:
+        if use_wan27:
+            full_prompt = build_home_furnishing_prompt(scheme)
+            client27 = Wan27ImageClient(
+                settings.dashscope_api_key,
+                model_id,
+                settings.dashscope_base_url,
+            )
+            result = await client27.edit_with_prompt(base_image, full_prompt)
+        else:
+            client = WanxiangClient(
+                settings.dashscope_api_key,
+                model_id,
+                settings.dashscope_base_url,
+                hair_segment_client=None,
+            )
+            result = await client.generate_interior_preview(base_image, scheme)
+    except TimeoutError as e:
+        logger.warning("home_furnishing_preview: timeout conversation_id={}: {}", body.conversation_id, e)
+        raise HTTPException(status_code=504, detail="image generation timed out") from e
+    except Exception as e:
+        logger.exception("home_furnishing_preview: failed conversation_id={}: {}", body.conversation_id, e)
+        raise HTTPException(status_code=502, detail="image generation failed") from e
+
+    logger.info(
+        "home_furnishing_preview: done task_id={} preview_url={}",
         result.task_id,
         result.preview_url,
     )

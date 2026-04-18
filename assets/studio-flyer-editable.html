@@ -383,13 +383,17 @@
       border-radius: 3px;
     }
 
-    /* 美发案例截图（工作流后） */
+    /* 美发落地案例：与上方「Dify 工作流能力」示意分区，避免版式混为一谈 */
     .salon-showcase {
-      margin-top: 40px;
-      padding-bottom: 8px;
+      margin-top: 36px;
+      padding: 32px 18px 12px;
+      border-top: 2px solid #cbd5e1;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(241, 245, 249, 0.75) 0%, rgba(248, 250, 252, 0.4) 38%, transparent 72%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
     }
     .salon-showcase-lead {
-      margin: -8px 0 22px;
+      margin: 0 0 22px;
       font-size: 12px;
       color: var(--muted);
       line-height: 1.65;
@@ -449,6 +453,56 @@
       }
       .salon-chat-pair .salon-shot:not(:last-child) {
         margin-bottom: 18px;
+      }
+    }
+
+    /* 美发案例：原图 + 三方案染色效果图（assets/flyer） */
+    .salon-case-block {
+      margin: 0 0 32px;
+    }
+    .salon-case-block--last {
+      margin-bottom: 12px;
+    }
+    .salon-case-title {
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+    }
+    /* 美发案例内：对话区 / 飞书表 前的章节小标题 */
+    .salon-subsection-title {
+      margin: 28px 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+    .salon-case-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      align-items: start;
+    }
+    .salon-case-grid .salon-shot {
+      margin: 0;
+      max-width: none;
+      width: 100%;
+    }
+    .salon-case-grid .salon-shot figcaption {
+      padding: 6px 8px;
+      font-size: 8px;
+      font-weight: 600;
+      line-height: 1.45;
+      letter-spacing: 0.02em;
+    }
+    .salon-case-grid .salon-shot--orig figcaption {
+      color: #334155;
+    }
+    @media (max-width: 900px) {
+      .salon-case-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
     .salon-shot--table { max-width: 100%; }
@@ -600,8 +654,20 @@
         打印分页：Chrome/Edge 在 overflow:hidden 的 figure 内拆页时，常出现「上一页只有空白框、图片在下一页」。
         美发整卡 avoid；打印时放开 figure 的 overflow。
       */
+      /* 美发案例整段从新页开始，与 Dify 工作流示意页分离 */
+      .salon-showcase {
+        break-before: page;
+        page-break-before: always;
+        box-shadow: none;
+        border-top-color: #94a3b8;
+        background: #fafbfc;
+      }
       .salon-showcase > h2,
       .salon-showcase > .salon-showcase-lead {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      .salon-subsection-title {
         break-after: avoid;
         page-break-after: avoid;
       }
@@ -610,6 +676,17 @@
         page-break-inside: avoid;
       }
       .salon-chat-pair .salon-shot {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        overflow: visible !important;
+      }
+      /* 屏幕窄于 900px 时栅格为 2 列；打印视口常 <900px，会误触发。打印强制 4 列以与屏上传单一致。 */
+      .salon-case-grid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      }
+      .salon-case-grid .salon-shot {
         break-inside: avoid;
         page-break-inside: avoid;
         overflow: visible !important;
@@ -820,11 +897,184 @@
       </div>
 
       <div class="salon-showcase">
-        <h2 contenteditable="true">美发案例 · 端到端展示</h2>
+        <h2 contenteditable="true">美发案例 · 发型师助理</h2>
         <p class="salon-showcase-lead" contenteditable="true">
-          左：Vision 看图给方案；右：对话完成预约抽取。下方为飞书多维表同构示意。
+          先为「原图 → 发型染色方案」四组案例；其下为企微/Dify 对话截图（推荐方案 / 预约确认）；最下为飞书多维表同构示意。
         </p>
-        <div class="salon-chat-pair">
+
+        <div class="salon-case-block">
+          <h3 class="salon-case-title" contenteditable="true">Girl · 长发（原图 flyer/girl.png → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/girl.png" alt="女孩长发原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 空气感微卷锁骨发，奶茶棕（#8C6A5D），侧分轻薄刘海+发尾内扣</figcaption>
+              <img
+                src="flyer/girl-long-1.png"
+                alt="女孩长发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照空气感微卷锁骨发，奶茶棕（#8C6A5D），侧分轻薄刘海+发尾内扣生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 法式慵懒大波浪，冷灰紫（#7A6B80），中分+发根蓬松处理</figcaption>
+              <img
+                src="flyer/girl-long-2.png"
+                alt="女孩长发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照法式慵懒大波浪，冷灰紫（#7A6B80），中分+发根蓬松处理生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 高层次直发+微层次剪裁，蜂蜜金（#D4B892），齐耳长度+发尾轻微外翻</figcaption>
+              <img
+                src="flyer/girl-long-3.png"
+                alt="女孩长发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照高层次直发+微层次剪裁，蜂蜜金（#D4B892），齐耳长度+发尾轻微外翻生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-case-block">
+          <h3 class="salon-case-title" contenteditable="true">Girl · 短发（原图 flyer/girl.png → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/girl.png" alt="女孩短发场景原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 齐耳微卷短发，冷灰紫（#8A7F8D），侧分空气刘海+发尾内扣，显脸小又带点甜酷感</figcaption>
+              <img
+                src="flyer/girl-short-1.png"
+                alt="女孩短发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照齐耳微卷短发，冷灰紫（#8A7F8D），侧分空气刘海+发尾内扣，显脸小又带点甜酷感生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 法式慵懒短Bob，蜂蜜金棕（#7D5A44），中分+发尾外翻，温柔知性，适合日常通勤</figcaption>
+              <img
+                src="flyer/girl-short-2.png"
+                alt="女孩短发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照法式慵懒短Bob，蜂蜜金棕（#7D5A44），中分+发尾外翻，温柔知性，适合日常通勤生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 层次感精灵短发，奶茶栗棕（#6E443C），无刘海+两侧蓬松剪裁，清爽利落，突出五官立体度</figcaption>
+              <img
+                src="flyer/girl-short-3.png"
+                alt="女孩短发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照层次感精灵短发，奶茶栗棕（#6E443C），无刘海+两侧蓬松剪裁，清爽利落，突出五官立体度生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-case-block">
+          <h3 class="salon-case-title" contenteditable="true">Boy · 短发（原图 flyer/boy.jpg → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/boy.jpg" alt="男孩短发原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 微纹理短碎发，冷灰棕（#5A4A42），两侧渐层修剪+顶部保留3cm长度做蓬松纹理</figcaption>
+              <img
+                src="flyer/boy-short-1.png"
+                alt="男孩短发方案一染色效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照微纹理短碎发，冷灰棕（#5A4A42），两侧渐层修剪+顶部保留3cm长度做蓬松纹理生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 侧分利落寸头，蜂蜜金棕（#7D5B45），全头统一长度1.5cm，侧分线强化面部比例</figcaption>
+              <img
+                src="flyer/boy-short-2.png"
+                alt="男孩短发方案二染色效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照侧分利落寸头，蜂蜜金棕（#7D5B45），全头统一长度1.5cm，侧分线强化面部比例生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 空气感短刘海，奶茶栗棕（#6E4A3D），前额留2cm空气刘海+后颈剃短</figcaption>
+              <img
+                src="flyer/boy-short-3.png"
+                alt="男孩短发方案三染色效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照空气感短刘海，奶茶栗棕（#6E4A3D），前额留2cm空气刘海+后颈剃短生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-case-block salon-case-block--last">
+          <h3 class="salon-case-title" contenteditable="true">Boy · 长发（原图 flyer/boy.jpg → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/boy.jpg" alt="男孩长发场景原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 微卷中分锁骨发，冷棕色（#5A4238），发尾内扣+中分利落线条，修饰脸型显干练</figcaption>
+              <img
+                src="flyer/boy-long-1.png"
+                alt="男孩长发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照微卷中分锁骨发，冷棕色（#5A4238），发尾内扣+中分利落线条，修饰脸型显干练生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 空气感中分直发，奶茶栗棕（#6B4A3D），发根蓬松+中分柔化轮廓，自然减龄</figcaption>
+              <img
+                src="flyer/boy-long-2.png"
+                alt="男孩长发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照空气感中分直发，奶茶栗棕（#6B4A3D），发根蓬松+中分柔化轮廓，自然减龄生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 层次感中分微喇发，灰调蜂蜜金（#7C5E3A），耳下层次+中分拉长比例，时尚有质感</figcaption>
+              <img
+                src="flyer/boy-long-3.png"
+                alt="男孩长发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照层次感中分微喇发，灰调蜂蜜金（#7C5E3A），耳下层次+中分拉长比例，时尚有质感生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <h3 class="salon-subsection-title" contenteditable="true">企微 / Dify 客户预约助理</h3>        <div class="salon-chat-pair">
           <figure class="salon-shot salon-shot--chat">
             <figcaption contenteditable="true">AI 代理对话 · 按照片推荐发型与发色</figcaption>
             <img
@@ -850,6 +1100,8 @@
             />
           </figure>
         </div>
+
+        <h3 class="salon-subsection-title" contenteditable="true">飞书多维表 · 预约与渠道回写</h3>
         <figure class="salon-shot salon-shot--table">
           <figcaption contenteditable="true">飞书多维表 · 预约字段与渠道回写</figcaption>
           <div class="salon-table-wrap">

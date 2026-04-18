@@ -26,6 +26,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from salon_gateway.ai.hair_segment import HairSegmentClient
+from salon_gateway.ai.home_furnishing_prompt import build_home_furnishing_prompt
 
 
 def _key_fingerprint(key: str) -> str:
@@ -147,6 +148,13 @@ class WanxiangClient:
         task_id = await self._submit(image_url, prompt, mask_uri)
         preview_url = await self._poll(task_id)
         return HairstyleResult(preview_url=preview_url, task_id=task_id, used_mask=used_mask)
+
+    async def generate_interior_preview(self, image_url: str, scheme_description: str) -> HairstyleResult:
+        """家居空间效果示意：仅用 description_edit（不使用发区 mask）。"""
+        prompt = build_home_furnishing_prompt(scheme_description)
+        task_id = await self._submit(image_url, prompt, None)
+        preview_url = await self._poll(task_id)
+        return HairstyleResult(preview_url=preview_url, task_id=task_id, used_mask=False)
 
     # ------------------------------------------------------------------ private
 

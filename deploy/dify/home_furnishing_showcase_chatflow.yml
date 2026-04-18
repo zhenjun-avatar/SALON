@@ -1,0 +1,492 @@
+# Dify DSL — 家居效果展示代理（沙发 / 桌椅 / 茶几 / 床上用品）
+#
+# 模式：高级对话（advanced-chat），两步式效果说明（与 Salon v5 思路类似）
+# ─────────────────────────────────────────────────────────────────────────
+# Turn 1：用户上传空间照片（客厅/卧室等）+ 可选文字（风格、预算、户型）
+#        → Vision LLM 输出三套编号搭配方案（每套覆盖：沙发、桌椅、茶几、床品）
+#        → 询问用户想深入看哪一套的「效果展示」
+#
+# Turn 2：用户明确选择某方案（如「方案二」「就第一个」）
+#        → HTTP 调用网关 /internal/home-furnishing-preview（通义万相示意效果图）
+#        → 解析 preview_url → 文本 LLM 深化说明 → Answer（文字 + 示意图 Markdown）
+#
+# 首轮会话图缓存：提取图片 URL 后 → POST /internal/conversation-image（与 booking 无关的家居流须写缓存，
+# 否则第二轮确认方案时 image_url 为空无法生图）。
+#
+# 导入后必做：
+# 1) 「空间分析与三套方案」节点选 Vision 模型（如 qwen-vl-plus / GPT-4o）。
+# 2) 「已确认方案深化」节点选文本模型即可（无需 Vision，省成本）。
+# 3) 「提取家居意图」节点选支持 function-calling / 参数提取的模型。
+# 4) 「缓存会话图片」「家居效果示意图」两个 HTTP 节点 → Bearer → 填 SALON_INTERNAL_BOOKING_TOKEN（与预约接口相同）。
+# 5) 「家居效果示意图」HTTP 节点 read timeout ≥ 90s。
+# 6) 若网关域名不同，替换三处 URL；发布应用并复制 API Key。
+#
+# 后端：需配置 SALON_DASHSCOPE_API_KEY；家居示意推荐 wan2.7-image / wan2.7-image-pro（见网关 env 说明）。
+
+app:
+  description: 家居（沙发、桌椅、茶几、床上用品）效果展示与搭配建议 — Dify Chatflow
+  icon: 🛋️
+  icon_background: '#E8F4FD'
+  mode: advanced-chat
+  name: 家居效果展示代理
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.3.1
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      image:
+        enabled: true
+        number_limits: 5
+        transfer_methods:
+          - remote_url
+          - local_file
+    opening_statement: |-
+      你好，我是家居搭配顾问。请上传客厅或卧室照片（可选说明风格、预算、面积），
+      我会给出沙发、桌椅、茶几与床上用品的三套编号方案；选定后先生成一张 AI 空间效果示意图，再附文字深化说明。
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions:
+      - 现代简约客厅，预算中等
+      - 北欧风卧室，想要温馨床品
+      - 小户型，只要沙发和茶几建议
+    suggested_questions_after_answer:
+      enabled: true
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+      - id: e-start-vision
+        source: node_start
+        sourceHandle: source
+        target: node_llm_vision
+        targetHandle: target
+      - id: e-vision-code
+        source: node_llm_vision
+        sourceHandle: source
+        target: node_code_image
+        targetHandle: target
+      - id: e-code-http-snap
+        source: node_code_image
+        sourceHandle: source
+        target: node_http_snap_image
+        targetHandle: target
+      - id: e-snap-extractor
+        source: node_http_snap_image
+        sourceHandle: source
+        target: node_extractor
+        targetHandle: target
+      - id: e-extractor-ifelse
+        source: node_extractor
+        sourceHandle: source
+        target: node_ifelse_confirmed
+        targetHandle: target
+      - id: e-ifelse-http-home
+        source: node_ifelse_confirmed
+        sourceHandle: confirmed
+        target: node_http_home_preview
+        targetHandle: target
+      - id: e-home-parse
+        source: node_http_home_preview
+        sourceHandle: source
+        target: node_code_parse_home
+        targetHandle: target
+      - id: e-parse-detail
+        source: node_code_parse_home
+        sourceHandle: source
+        target: node_llm_detail
+        targetHandle: target
+      - id: e-detail-answer
+        source: node_llm_detail
+        sourceHandle: source
+        target: node_answer_detail
+        targetHandle: target
+      - id: e-ifelse-answer-first
+        source: node_ifelse_confirmed
+        sourceHandle: 'false'
+        target: node_answer_first
+        targetHandle: target
+
+    nodes:
+      - data:
+          desc: ''
+          title: Start
+          type: start
+          variables: []
+        id: node_start
+        position:
+          x: 80
+          y: 320
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: 结合照片与文字，输出三套家具搭配方案（含沙发、桌椅、茶几、床品）
+          memory:
+            query_prompt_template: '{{#sys.query#}}\n\n{{#sys.files#}}'
+            window:
+              enabled: true
+              size: 20
+          model:
+            completion_params:
+              temperature: 0.55
+            mode: chat
+            name: ''
+            provider: ''
+          prompt_template:
+            - role: system
+              selected: true
+              text: |-
+                你是资深室内与软装顾问，专注中国家庭常见户型。用友好、专业的中文回复。
+
+                【品类覆盖】每套方案必须同时涉及以下五类（可合并描述，但不可整类缺失）：
+                1) 沙发  2) 桌椅（餐桌椅或书桌椅，按空间推断）  3) 茶几（或边几替代说明）
+                4) 床上用品（四件套/被芯枕芯风格与色系）  5) 与整体协调的配饰建议（简要即可）
+
+                【第一步：仅输出文字方案；不声称当前已生成图片。用户选定方案后，系统会另行生成 AI 空间效果示意图。】
+                若用户上传了房间/客厅/卧室照片：先简短分析空间（采光、大致面积感、现有硬装色调），
+                再给出三套**编号**搭配方案。每套格式严格如下（每条一行块，便于阅读）：
+
+                  方案一：[整体风格关键词] — 沙发：[款式+材质+主色]；桌椅：[…]；茶几：[…]；床品：[…]；亮点：[一句话]
+                  方案二：…
+                  方案三：…
+
+                若用户**未**上传图片：根据文字描述给出三套方案，并礼貌说明「上传照片可更贴合实际空间」。
+
+                方案末尾固定询问：「您想针对哪一套生成 **AI 空间效果示意图** 并展开详细说明？（回复 方案一 / 方案二 / 方案三 即可）」
+
+                禁止编造具体品牌型号货号；可用「例如：浅灰布艺三人位」这类描述。
+                涉及尺寸请写区间或「需现场量尺」，避免虚假精确数字。
+            - role: user
+              selected: true
+              text: "{{#sys.query#}}\n{{#sys.files#}}"
+          title: 空间分析与三套方案
+          type: llm
+          variables: []
+          vision:
+            enabled: true
+        id: node_llm_vision
+        position:
+          x: 300
+          y: 320
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          code: |
+            def main(files: list) -> dict:
+                for f in (files or []):
+                    url = (f or {}).get("url") or (f or {}).get("remote_url") or ""
+                    if url:
+                        return {"image_url": url}
+                return {"image_url": ""}
+          code_language: python3
+          desc: 从本轮 sys.files 取首张图片 URL，供后续扩展 HTTP 生图节点使用
+          outputs:
+            image_url:
+              description: 当前轮图片 URL，无图为空
+              type: string
+          title: 提取图片URL
+          type: code
+          variables:
+            - label: files
+              value_selector:
+                - sys
+                - files
+              variable: files
+        id: node_code_image
+        position:
+          x: 520
+          y: 320
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          authorization:
+            config:
+              api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
+              header: ''
+              type: bearer
+            type: api-key
+          body:
+            data:
+              - id: json-body-snap
+                key: ''
+                type: text
+                value: '{"conversation_id":"{{#sys.conversation_id#}}","image_url":"{{#node_code_image.image_url#}}"}'
+            type: json
+          desc: 每轮在提取参数前写入会话参考图 URL，供确认方案后生图时 image_url 为空也能取到首轮照片
+          headers: 'Content-Type: application/json'
+          method: post
+          params: ''
+          retry_config:
+            max_retries: 1
+            retry_enabled: true
+            retry_interval: 500
+          ssl_verify: true
+          timeout:
+            max_connect_timeout: 10
+            max_read_timeout: 30
+            max_write_timeout: 10
+          title: 缓存会话图片
+          type: http-request
+          url: https://quizmesh.tech/salon/internal/conversation-image
+          variables: []
+        id: node_http_snap_image
+        position:
+          x: 660
+          y: 320
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          desc: 识别用户是否已明确选择某一方案，并抽取风格/空间关键词
+          instruction: |-
+            从当前用户输入并结合最近对话历史判断：
+
+            【confirmed_scheme】
+            - 若用户明确选择某一编号方案（如「方案一」「第二个」「要方案三那种」），
+              请从对话历史中找出该方案的**完整一行描述**（含沙发、桌椅、茶几、床品部分），填入 confirmed_scheme。
+            - 若用户仍在闲聊、首次提问、上传图片但未表态选哪套，则 confirmed_scheme 为空字符串。
+
+            【room_type】客厅 / 卧室 / 书房 / 餐厅 / 全屋 / 未提及 → 填「未提及」或最可能的一类。
+
+            【style_hint】用户提到的风格词（如北欧、奶油风、新中式），没有则空字符串。
+
+            【budget_hint】用户提到的预算（如「五千以内」「精装房」），没有则空字符串。
+          memory:
+            enabled: true
+            window:
+              enabled: true
+              size: 8
+          model:
+            completion_params:
+              temperature: 0.15
+            mode: chat
+            name: ''
+            provider: ''
+          parameters:
+            - description: 用户确认的那套方案的完整文字描述；未确认则空
+              name: confirmed_scheme
+              required: false
+              type: string
+            - description: 空间类型
+              name: room_type
+              required: false
+              type: string
+            - description: 风格关键词
+              name: style_hint
+              required: false
+              type: string
+            - description: 预算或档次描述
+              name: budget_hint
+              required: false
+              type: string
+          query:
+            - sys
+            - query
+          reasoning_mode: prompt
+          title: 提取家居意图
+          type: parameter-extractor
+        id: node_extractor
+        position:
+          x: 880
+          y: 320
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          cases:
+            - case_id: confirmed
+              conditions:
+                - comparison_operator: not empty
+                  variable_selector:
+                    - node_extractor
+                    - confirmed_scheme
+              logical_operator: and
+          desc: 已选方案则先生成效果示意图，再文本深化；否则只回复首轮分析
+          title: 已选方案?
+          type: if-else
+        id: node_ifelse_confirmed
+        position:
+          x: 1100
+          y: 320
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          authorization:
+            config:
+              api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
+              header: ''
+              type: bearer
+            type: api-key
+          body:
+            data:
+              - id: json-body-home-preview
+                key: ''
+                type: text
+                value: '{"image_url":"{{#node_code_image.image_url#}}","style_prompt":"{{#node_extractor.confirmed_scheme#}}","conversation_id":"{{#sys.conversation_id#}}"}'
+            type: json
+          desc: |-
+            调用网关通义万相生成家居效果示意图（约 10–90s）。
+            image_url 为空时由网关从会话缓存补全首轮上传的房间图。
+            导入后请将 read timeout 改为 90s。
+          headers: 'Content-Type: application/json'
+          method: post
+          params: ''
+          retry_config:
+            max_retries: 1
+            retry_enabled: true
+            retry_interval: 1000
+          ssl_verify: true
+          timeout:
+            max_connect_timeout: 10
+            max_read_timeout: 90
+            max_write_timeout: 30
+          title: 家居效果示意图
+          type: http-request
+          url: https://quizmesh.tech/salon/internal/home-furnishing-preview
+          variables: []
+        id: node_http_home_preview
+        position:
+          x: 1320
+          y: 140
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          code: |
+            import json
+            def main(body: str) -> dict:
+                try:
+                    data = json.loads(body or "{}")
+                    url = data.get("preview_url") or ""
+                except Exception:
+                    url = ""
+                return {"preview_url": url}
+          code_language: python3
+          desc: 解析 home-furnishing-preview 返回 JSON 中的 preview_url
+          outputs:
+            preview_url:
+              description: 效果示意图 URL
+              type: string
+          title: 解析示意图URL
+          type: code
+          variables:
+            - label: body
+              value_selector:
+                - node_http_home_preview
+                - body
+              variable: body
+        id: node_code_parse_home
+        position:
+          x: 1540
+          y: 140
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: 对已选方案做详细效果展示（文字化「效果图」叙述 + 清单）
+          memory:
+            enabled: true
+            window:
+              enabled: true
+              size: 12
+          model:
+            completion_params:
+              temperature: 0.45
+            mode: chat
+            name: ''
+            provider: ''
+          prompt_template:
+            - role: system
+              selected: true
+              text: |-
+                你是软装深化顾问。用户已从上一轮对话中**确认**了以下方案（请严格以其为主线，不要改选其他方案）：
+
+                【已确认方案】
+                {{#node_extractor.confirmed_scheme#}}
+
+                【用户补充】空间：{{#node_extractor.room_type#}}；风格线索：{{#node_extractor.style_hint#}}；预算线索：{{#node_extractor.budget_hint#}}
+
+                请输出结构化「效果展示」，必须包含以下 Markdown 小节（标题用 ##）：
+                ## 整体氛围与配色
+                ## 空间布局与动线（结合沙发、茶几、桌椅位置关系文字描述）
+                ## 分品类细化（沙发 / 桌椅 / 茶几 / 床上用品 — 各一小段：款式、材质、色值倾向、搭配理由）
+                ## 软装与灯光建议（简要）
+                ## 采购与落地提示（可写「需量尺」「建议线下看样」，不要编造具体购买链接）
+
+                语气专业、可执行。本轮回复末尾会附上「AI 空间效果示意图」链接（由上游生图服务生成），
+                请在文中简要说明该图为示意参考，实际效果以线下选材与施工为准。
+            - role: user
+              selected: true
+              text: '{{#sys.query#}}'
+          title: 已确认方案深化
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        id: node_llm_detail
+        position:
+          x: 1760
+          y: 140
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          answer: |-
+            {{#node_llm_detail.text#}}
+
+            ---
+            **AI 空间效果示意图（示意参考）**
+            ![]({{#node_code_parse_home.preview_url#}})
+          desc: ''
+          title: Answer（深化+示意图）
+          type: answer
+          variables: []
+        id: node_answer_detail
+        position:
+          x: 1980
+          y: 140
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+
+      - data:
+          answer: '{{#node_llm_vision.text#}}'
+          desc: ''
+          title: Answer（首轮）
+          type: answer
+          variables: []
+        id: node_answer_first
+        position:
+          x: 1320
+          y: 480
+        sourcePosition: right
+        targetPosition: left
+        type: custom

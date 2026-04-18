@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>宣传单 — 临朐县测验软件开发工作室</title>
+  <style>
+    :root {
+      --bg-deep: #0c1222;
+      --bg-card: #ffffff;
+      --bg-soft: #f4f6fb;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.35);
+      --gold: #d4a853;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --border: rgba(148, 163, 184, 0.35);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(165deg, #eef2ff 0%, #f8fafc 40%, #e2e8f0 100%);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .sheet {
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 0 0 48px;
+      box-shadow: 0 25px 80px rgba(15, 23, 42, 0.12);
+      background: var(--bg-soft);
+    }
+
+    /* 浅色头图：省墨、打印清晰 */
+    .hero {
+      background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #f1f5f9 100%);
+      color: var(--ink);
+      padding: 28px 28px 36px;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(ellipse 70% 50% at 100% 0%, rgba(59, 130, 246, 0.08), transparent 55%),
+        radial-gradient(ellipse 55% 45% at 0% 100%, rgba(212, 168, 83, 0.07), transparent 50%);
+      pointer-events: none;
+    }
+    .hero-inner { position: relative; z-index: 1; }
+    .hero-kicker {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: clamp(26px, 5vw, 34px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin: 0 0 12px;
+      line-height: 1.25;
+    }
+    .hero h1 span { color: var(--ink); }
+    .sub {
+      font-size: 14px;
+      color: #475569;
+      max-width: 36em;
+      margin: 0;
+      font-weight: 400;
+    }
+    .hero-line {
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--gold), var(--accent));
+      border-radius: 2px;
+      margin-top: 20px;
+    }
+
+    .body {
+      padding: 32px 24px 0;
+      max-width: 210mm;
+      margin: 0 auto;
+    }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      margin: 0 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    h2::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    .cases {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 520px) {
+      .cases { grid-template-columns: 1fr; }
+    }
+    .case {
+      background: var(--bg-card);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .case:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+    }
+    .case-visual {
+      aspect-ratio: 1;
+      max-height: 148px;
+      margin: 0 auto;
+      width: 100%;
+      background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+      position: relative;
+    }
+    .case-visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .case-body { padding: 11px 13px 14px; }
+    .case-body strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 5px;
+      letter-spacing: 0.02em;
+    }
+    .case-body p {
+      margin: 0;
+      font-size: 10.5px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    /* —— 工作流：浅色大画幅（适印） —— */
+    .flow-section { margin-top: 40px; }
+    .flow-arena {
+      background: linear-gradient(165deg, #ffffff 0%, #f8fafc 45%, #f1f5f9 100%);
+      border-radius: 28px;
+      padding: 36px 26px 40px;
+      color: var(--ink);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
+      border: 1px solid #e2e8f0;
+    }
+    .flow-arena::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: radial-gradient(ellipse 85% 70% at 50% 25%, black 25%, transparent 72%);
+      pointer-events: none;
+    }
+    .flow-arena-inner { position: relative; z-index: 1; }
+    .flow-head {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .flow-head .tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.35em;
+      color: #b45309;
+      margin-bottom: 8px;
+    }
+    .flow-head h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--ink);
+    }
+    .flow-head p {
+      margin: 10px 0 0;
+      font-size: 12px;
+      color: #64748b;
+      max-width: 28em;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .flow-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+
+    .flow-track {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 6px 4px;
+      margin-bottom: 8px;
+    }
+    .flow-arrow {
+      color: #94a3b8;
+      font-size: 14px;
+      font-weight: 300;
+      padding: 0 2px;
+      user-select: none;
+    }
+    /* 淡色节点：打印省墨，字用深色保证可读 */
+    .fn {
+      padding: 12px 18px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #0f172a;
+      white-space: nowrap;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .fn-a { background: #dbeafe; border-color: #93c5fd; }
+    .fn-b { background: #e0e7ff; border-color: #a5b4fc; }
+    .fn-c { background: #ede9fe; border-color: #c4b5fd; }
+    .fn-d { background: #e0f2fe; border-color: #7dd3fc; }
+    .fn-e { background: #fef3c7; border-color: #fcd34d; }
+
+    .flow-split {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 28px 0;
+      position: relative;
+    }
+    @media (max-width: 600px) {
+      .flow-split { grid-template-columns: 1fr; }
+    }
+    .flow-split::before {
+      content: "";
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 14px;
+      background: linear-gradient(180deg, #cbd5e1, transparent);
+      border-radius: 1px;
+    }
+    .pillar {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 20px 14px 22px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+    .pillar-cap {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      color: #64748b;
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+    .fn-p1 { background: #dbeafe; border-color: #93c5fd; color: #0f172a; }
+    .fn-p2 { background: #d1fae5; border-color: #6ee7b7; color: #0f172a; }
+    .fn-p3 { background: #fce7f3; border-color: #f9a8d4; color: #0f172a; }
+    .pillar .fn { display: inline-block; margin-bottom: 8px; }
+    .pillar-sub {
+      font-size: 10px;
+      color: #64748b;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+
+    .flow-merge {
+      text-align: center;
+      padding-top: 8px;
+    }
+    .flow-merge .flow-arrow { display: block; margin: 4px auto; font-size: 18px; color: #94a3b8; }
+    .fn-merge {
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+    }
+    .fn-out {
+      background: #ffffff;
+      color: #0f172a;
+      border: 2px solid #d4a853;
+      font-size: 13px;
+      margin-top: 8px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    }
+
+    .flow-foot {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.65;
+      max-width: 36em;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* —— 财务 RAG 案例 + 架构图 —— */
+    .finance-rag-section {
+      margin-top: 40px;
+      padding-bottom: 8px;
+    }
+    .finance-rag-kicker {
+      margin: -6px 0 16px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+    .finance-rag-figure {
+      margin: 0 0 22px;
+      padding: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+    }
+    .finance-rag-figure figcaption {
+      padding: 10px 14px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .finance-rag-imgwrap {
+      background: #0f172a;
+      line-height: 0;
+    }
+    .finance-rag-imgwrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: auto;
+      image-rendering: high-quality;
+    }
+    .finance-rag-section .finance-rag-flow-wrap.flow-section {
+      margin-top: 10px;
+    }
+    .finance-rag-ask-note {
+      text-align: left;
+      max-width: none;
+      font-size: 10px;
+      margin-top: 12px;
+      margin-bottom: 20px;
+    }
+    .finance-rag-ask-note code {
+      font-size: 9px;
+      background: rgba(241, 245, 249, 0.95);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    /* 美发落地案例：与上方「Dify 工作流能力」示意分区，避免版式混为一谈 */
+    .salon-showcase {
+      margin-top: 36px;
+      padding: 32px 18px 12px;
+      border-top: 2px solid #cbd5e1;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(241, 245, 249, 0.75) 0%, rgba(248, 250, 252, 0.4) 38%, transparent 72%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+    .salon-showcase-lead {
+      margin: 0 0 22px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.65;
+      max-width: 42em;
+    }
+    .salon-shot {
+      margin: 0 0 28px;
+      padding: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+    }
+    .salon-shot:last-child { margin-bottom: 0; }
+    .salon-shot figcaption {
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .salon-shot img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+      /* 高分辨率 PNG 缩小显示时，优先高质量插值（支持的浏览器生效） */
+      image-rendering: auto;
+      image-rendering: high-quality;
+    }
+    .salon-chat-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 28px;
+      align-items: start;
+    }
+    /* 720px 源图：约 232px 展示 ≈3.1× 缩小，配合 high-quality 插值，比更窄尺寸更易保真 */
+    .salon-chat-pair .salon-shot {
+      margin-bottom: 0;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: min(34vw, 232px);
+      width: 100%;
+    }
+    .salon-chat-pair .salon-shot figcaption {
+      padding: 7px 9px;
+      font-size: 9px;
+    }
+    @media (max-width: 720px) {
+      .salon-chat-pair {
+        grid-template-columns: 1fr;
+      }
+      .salon-chat-pair .salon-shot:not(:last-child) {
+        margin-bottom: 18px;
+      }
+    }
+
+    /* 美发案例：原图 + 三方案染色效果图（assets/flyer） */
+    .salon-case-block {
+      margin: 0 0 32px;
+    }
+    .salon-case-block--last {
+      margin-bottom: 12px;
+    }
+    .salon-case-title {
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+    }
+    /* 美发案例内：对话区 / 飞书表 前的章节小标题 */
+    .salon-subsection-title {
+      margin: 28px 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+    .salon-case-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      align-items: start;
+    }
+    .salon-case-grid .salon-shot {
+      margin: 0;
+      max-width: none;
+      width: 100%;
+    }
+    .salon-case-grid .salon-shot figcaption {
+      padding: 6px 8px;
+      font-size: 8px;
+      font-weight: 600;
+      line-height: 1.45;
+      letter-spacing: 0.02em;
+    }
+    .salon-case-grid .salon-shot--orig figcaption {
+      color: #334155;
+    }
+    @media (max-width: 900px) {
+      .salon-case-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .salon-shot--table { max-width: 100%; }
+    .salon-table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 12px 14px 16px;
+      background: #fafbfc;
+    }
+    .salon-bitable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+      line-height: 1.45;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .salon-bitable th,
+    .salon-bitable td {
+      border: 1px solid #e8ecf1;
+      padding: 7px 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .salon-bitable thead th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #475569;
+      white-space: nowrap;
+    }
+    .salon-bitable tbody tr:nth-child(even) { background: #fafbfc; }
+    .salon-bitable .cell-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .salon-bitable .pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .pill-store-a { background: #e0f2fe; color: #0369a1; }
+    .pill-store-b { background: #ffedd5; color: #c2410c; }
+    .pill-store-c { background: #fef9c3; color: #854d0e; }
+    .pill-svc { background: #f1f5f9; color: #334155; }
+    .pill-yes { background: #dcfce7; color: #166534; }
+    .pill-no { background: #f1f5f9; color: #64748b; }
+    .pill-done { background: #ffedd5; color: #9a3412; }
+    .pill-wait { background: #dbeafe; color: #1d4ed8; }
+    .pill-ch-wecom { background: #ecfdf5; color: #047857; }
+    .pill-ch-dify { background: #eef2ff; color: #4338ca; }
+
+    footer.footer-cta {
+      margin: 44px 24px 0;
+      padding: 0 0 28px;
+      text-align: center;
+      border-top: none;
+    }
+    footer.footer-cta .footer-cta-inner {
+      padding: 22px 20px 24px;
+      background: linear-gradient(165deg, #f1f5f9 0%, #e8eef5 100%);
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    footer.footer-cta .name {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: 0.08em;
+      margin: 0 0 14px;
+      line-height: 1.3;
+    }
+    footer.footer-cta .name::after {
+      content: "";
+      display: block;
+      width: 48px;
+      height: 3px;
+      margin: 12px auto 0;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--gold), var(--accent));
+    }
+    footer.footer-cta .contact-line {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: 0.03em;
+      line-height: 1.6;
+    }
+    footer.footer-cta .contact-line .sep {
+      display: inline-block;
+      margin: 0 12px;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    [contenteditable="true"]:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* 屏幕-only：打印操作提示（打印时自动隐藏） */
+    .print-help {
+      max-width: 210mm;
+      margin: 0 auto 16px;
+      padding: 14px 18px;
+      font-size: 12px;
+      color: #334155;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      line-height: 1.55;
+    }
+    .print-help strong { color: #92400e; }
+    .print-help ol { margin: 8px 0 0; padding-left: 1.2em; }
+    .print-help code { font-size: 11px; background: #fef3c7; padding: 1px 5px; border-radius: 4px; }
+
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+
+    @media print {
+      .print-help { display: none !important; }
+      body { background: #fff; }
+      .sheet { box-shadow: none; max-width: none; padding-bottom: 0; }
+      .body { padding-left: 0; padding-right: 0; }
+      .case:hover { transform: none; }
+      .hero { border-bottom-color: #ccc; }
+      .flow-arena { box-shadow: none; border-color: #ccc; }
+      .case { box-shadow: none; }
+      .salon-shot { box-shadow: none; border-color: #ccc; }
+      .salon-table-wrap { background: #fff; }
+      .salon-bitable { font-size: 9px; }
+      .salon-bitable th,
+      .salon-bitable td { padding: 5px 6px; }
+      /* 打印用物理宽度，避免整页缩放把截图压得过小 */
+      .salon-chat-pair .salon-shot {
+        max-width: 54mm;
+      }
+      /*
+        打印分页：Chrome/Edge 在 overflow:hidden 的 figure 内拆页时，常出现「上一页只有空白框、图片在下一页」。
+        美发整卡 avoid；打印时放开 figure 的 overflow。
+      */
+      /* 美发案例整段从新页开始，与 Dify 工作流示意页分离 */
+      .salon-showcase {
+        break-before: page;
+        page-break-before: always;
+        box-shadow: none;
+        border-top-color: #94a3b8;
+        background: #fafbfc;
+      }
+      .salon-showcase > h2,
+      .salon-showcase > .salon-showcase-lead {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      .salon-subsection-title {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      .salon-chat-pair {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .salon-chat-pair .salon-shot {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        overflow: visible !important;
+      }
+      /* 屏幕窄于 900px 时栅格为 2 列；打印视口常 <900px，会误触发。打印强制 4 列以与屏上传单一致。 */
+      .salon-case-grid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      }
+      .salon-case-grid .salon-shot {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        overflow: visible !important;
+      }
+      /* 飞书表格区允许跨页，避免整表被推到空白页 */
+      .salon-shot--table {
+        break-inside: auto;
+        page-break-inside: auto;
+      }
+      .finance-rag-figure { box-shadow: none; border-color: #ccc; }
+      .finance-rag-imgwrap { background: #fff; }
+      /* 美发案例与财务案例不同页 */
+      .finance-rag-section {
+        break-before: page;
+        page-break-before: always;
+      }
+      /* 尽量避免卡片、工作流块被分页截断 */
+      .case,
+      .pillar,
+      .flow-head,
+      .flow-track,
+      .flow-merge,
+      footer.footer-cta {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      footer.footer-cta .footer-cta-inner {
+        box-shadow: none;
+        border-color: #bbb;
+        background: #f1f5f9;
+      }
+      h2 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      .hero {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="print-help" aria-label="打印说明">
+    <strong>长页如何打印</strong>
+    <ol>
+      <li>按 <code>Ctrl+P</code>（Mac：<code>⌘P</code>）打开打印预览。</li>
+      <li>目标选「另存为 PDF」或你的打印机；纸张一般为 <strong>A4</strong>、纵向。</li>
+      <li>内容会<strong>自动分页</strong>；若某块仍被截断，可把「缩放」调到 90%～95%，或勾选「适合页面宽度」。</li>
+      <li>需要浅色底纹时勾选「<strong>背景图形</strong>」；省墨可关闭。</li>
+      <li>若预览里出现<strong>日期、标题、file:/// 路径</strong>：那是浏览器的<strong>页眉和页脚</strong>。在打印里展开「更多设置」，<strong>取消勾选「页眉和页脚」</strong>（Chrome / Edge 英文界面为 Headers and footers）即可去掉；标题文字来自本页 <code>&lt;title&gt;</code>，与传单正文无关。</li>
+    </ol>
+  </aside>
+  <div class="sheet">
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="hero-kicker" contenteditable="true">Agent · Workflow · RAG</div>
+        <h1 contenteditable="true"><span>企业 AI 代理构建服务</span></h1>
+        <p class="sub" contenteditable="true">工作流编排 · 系统集成 · LangGraph · RAG 知识沉淀 — 助力业务自动化与知识资产化</p>
+        <div class="hero-line" aria-hidden="true"></div>
+      </div>
+    </header>
+
+    <div class="body">
+      <h2 contenteditable="true">行业案例</h2>
+      <div class="cases">
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-salon.png" alt="美发场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">美容美发</strong>
+            <p contenteditable="true">智能预约与门店选项、图文造型与发色建议、与业务系统/多维表同步</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-ecom.png" alt="电商场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">电商</strong>
+            <p contenteditable="true">商品与活动咨询、售后话术与退换指引、订单状态查询与工单辅助</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-finance.png" alt="财务场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">财务</strong>
+            <p contenteditable="true">报销与内规问询；财报 / 招股书 Node-centric RAG（见下节产品与架构）</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-legal.png" alt="法律场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">法律</strong>
+            <p contenteditable="true">合同要点提取、条款检索、合规知识问答（仅供参考，不构成法律意见）</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-fitness.png" alt="体育健身场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">体育健身</strong>
+            <p contenteditable="true">课程与私教咨询、会员与卡项说明、器械与训练计划答疑、约课与门店对接</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-education.png" alt="教育培训场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">教育培训</strong>
+            <p contenteditable="true">课程与班型咨询、报名与试听指引、题库与知识点答疑、排课与教务系统对接</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-homedecor.png" alt="建材家居场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">建材家居</strong>
+            <p contenteditable="true">产品规格与材质问询、报价与样板间指引、订单与配送进度、与门店 / CRM 对接</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-realestate.png" alt="房地产场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">房地产</strong>
+            <p contenteditable="true">楼盘与户型咨询、看房预约与顾问分流、贷款与政策答疑、与售楼系统 / 企微对接</p>
+          </div>
+        </article>
+        <article class="case">
+          <div class="case-visual">
+            <img src="flyer/case-healthcare.png" alt="医疗保健场景" width="512" height="512" />
+          </div>
+          <div class="case-body">
+            <strong contenteditable="true">医疗保健</strong>
+            <p contenteditable="true">科室与就诊指引、预约与报告查询说明、健康科普与随访提醒（信息辅助，非诊疗意见）、与 HIS / 服务号对接</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="flow-section">
+        <h2 contenteditable="true">Dify 工作流能力（示意）</h2>
+        <div class="flow-arena">
+          <div class="flow-arena-inner">
+            <div class="flow-head">
+              <div class="tag" contenteditable="true">ORCHESTRATION</div>
+              <h3 contenteditable="true">可视化编排 · 企业级扩展</h3>
+              <p contenteditable="true">主链路串联认知与决策，并行工具对接业务系统，最终统一输出</p>
+            </div>
+
+            <div class="flow-label" contenteditable="true">主流程 MAIN PIPELINE</div>
+            <div class="flow-track">
+              <span class="fn fn-a" contenteditable="true">开始</span>
+              <span class="flow-arrow">→</span>
+              <span class="fn fn-b" contenteditable="true">知识检索 / RAG</span>
+              <span class="flow-arrow">→</span>
+              <span class="fn fn-c" contenteditable="true">LLM</span>
+              <span class="flow-arrow">→</span>
+              <span class="fn fn-d" contenteditable="true">参数提取</span>
+              <span class="flow-arrow">→</span>
+              <span class="fn fn-e" contenteditable="true">条件分支</span>
+            </div>
+
+            <div class="flow-label" contenteditable="true">并行能力 PARALLEL TOOLS</div>
+            <div class="flow-split">
+              <div class="pillar">
+                <div class="pillar-cap" contenteditable="true">集成</div>
+                <span class="fn fn-p1" contenteditable="true">HTTP 工具</span>
+                <div class="pillar-sub" contenteditable="true">业务网关 · 飞书多维表 · 第三方 API</div>
+              </div>
+              <div class="pillar">
+                <div class="pillar-cap" contenteditable="true">计算</div>
+                <span class="fn fn-p2" contenteditable="true">代码执行</span>
+                <div class="pillar-sub" contenteditable="true">清洗 · 聚合 · 自定义逻辑</div>
+              </div>
+              <div class="pillar">
+                <div class="pillar-cap" contenteditable="true">多模态</div>
+                <span class="fn fn-p3" contenteditable="true">图像 / 文件</span>
+                <div class="pillar-sub" contenteditable="true">上传解析 · Vision 模型</div>
+              </div>
+            </div>
+
+            <div class="flow-merge">
+              <span class="flow-arrow">↓</span>
+              <div>
+                <span class="fn fn-merge" contenteditable="true">变量赋值 · 结果汇总</span>
+              </div>
+              <span class="flow-arrow">↓</span>
+              <div>
+                <span class="fn fn-out" contenteditable="true">直接回复 · 用户可见</span>
+              </div>
+            </div>
+
+            <p class="flow-foot" contenteditable="true">
+              可扩展：重试与限流、人工确认节点、与 LangGraph 编排联动、会话状态与企业网关协同
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="salon-showcase">
+        <h2 contenteditable="true">美发案例 · 发型师助理</h2>
+        <p class="salon-showcase-lead" contenteditable="true">
+          先为「原图 → 发型染色方案」四组案例；其下为企微/Dify 对话截图（推荐方案 / 预约确认）；最下为飞书多维表同构示意。
+        </p>
+
+        <div class="salon-case-block">
+          <h3 class="salon-case-title" contenteditable="true">Girl · 长发（原图 flyer/girl.png → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/girl.png" alt="女孩长发原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 空气感微卷锁骨发，奶茶棕（#8C6A5D），侧分轻薄刘海+发尾内扣</figcaption>
+              <img
+                src="flyer/girl-long-1.png"
+                alt="女孩长发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照空气感微卷锁骨发，奶茶棕（#8C6A5D），侧分轻薄刘海+发尾内扣生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 法式慵懒大波浪，冷灰紫（#7A6B80），中分+发根蓬松处理</figcaption>
+              <img
+                src="flyer/girl-long-2.png"
+                alt="女孩长发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照法式慵懒大波浪，冷灰紫（#7A6B80），中分+发根蓬松处理生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 高层次直发+微层次剪裁，蜂蜜金（#D4B892），齐耳长度+发尾轻微外翻</figcaption>
+              <img
+                src="flyer/girl-long-3.png"
+                alt="女孩长发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照高层次直发+微层次剪裁，蜂蜜金（#D4B892），齐耳长度+发尾轻微外翻生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-case-block">
+          <h3 class="salon-case-title" contenteditable="true">Girl · 短发（原图 flyer/girl.png → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/girl.png" alt="女孩短发场景原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 齐耳微卷短发，冷灰紫（#8A7F8D），侧分空气刘海+发尾内扣，显脸小又带点甜酷感</figcaption>
+              <img
+                src="flyer/girl-short-1.png"
+                alt="女孩短发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照齐耳微卷短发，冷灰紫（#8A7F8D），侧分空气刘海+发尾内扣，显脸小又带点甜酷感生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 法式慵懒短Bob，蜂蜜金棕（#7D5A44），中分+发尾外翻，温柔知性，适合日常通勤</figcaption>
+              <img
+                src="flyer/girl-short-2.png"
+                alt="女孩短发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照法式慵懒短Bob，蜂蜜金棕（#7D5A44），中分+发尾外翻，温柔知性，适合日常通勤生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 层次感精灵短发，奶茶栗棕（#6E443C），无刘海+两侧蓬松剪裁，清爽利落，突出五官立体度</figcaption>
+              <img
+                src="flyer/girl-short-3.png"
+                alt="女孩短发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照层次感精灵短发，奶茶栗棕（#6E443C），无刘海+两侧蓬松剪裁，清爽利落，突出五官立体度生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-case-block">
+          <h3 class="salon-case-title" contenteditable="true">Boy · 短发（原图 flyer/boy.jpg → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/boy.jpg" alt="男孩短发原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 微纹理短碎发，冷灰棕（#5A4A42），两侧渐层修剪+顶部保留3cm长度做蓬松纹理</figcaption>
+              <img
+                src="flyer/boy-short-1.png"
+                alt="男孩短发方案一染色效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照微纹理短碎发，冷灰棕（#5A4A42），两侧渐层修剪+顶部保留3cm长度做蓬松纹理生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 侧分利落寸头，蜂蜜金棕（#7D5B45），全头统一长度1.5cm，侧分线强化面部比例</figcaption>
+              <img
+                src="flyer/boy-short-2.png"
+                alt="男孩短发方案二染色效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照侧分利落寸头，蜂蜜金棕（#7D5B45），全头统一长度1.5cm，侧分线强化面部比例生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 空气感短刘海，奶茶栗棕（#6E4A3D），前额留2cm空气刘海+后颈剃短</figcaption>
+              <img
+                src="flyer/boy-short-3.png"
+                alt="男孩短发方案三染色效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照空气感短刘海，奶茶栗棕（#6E4A3D），前额留2cm空气刘海+后颈剃短生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-case-block salon-case-block--last">
+          <h3 class="salon-case-title" contenteditable="true">Boy · 长发（原图 flyer/boy.jpg → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/boy.jpg" alt="男孩长发场景原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 微卷中分锁骨发，冷棕色（#5A4238），发尾内扣+中分利落线条，修饰脸型显干练</figcaption>
+              <img
+                src="flyer/boy-long-1.png"
+                alt="男孩长发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照微卷中分锁骨发，冷棕色（#5A4238），发尾内扣+中分利落线条，修饰脸型显干练生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 空气感中分直发，奶茶栗棕（#6B4A3D），发根蓬松+中分柔化轮廓，自然减龄</figcaption>
+              <img
+                src="flyer/boy-long-2.png"
+                alt="男孩长发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照空气感中分直发，奶茶栗棕（#6B4A3D），发根蓬松+中分柔化轮廓，自然减龄生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 层次感中分微喇发，灰调蜂蜜金（#7C5E3A），耳下层次+中分拉长比例，时尚有质感</figcaption>
+              <img
+                src="flyer/boy-long-3.png"
+                alt="男孩长发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照层次感中分微喇发，灰调蜂蜜金（#7C5E3A），耳下层次+中分拉长比例，时尚有质感生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <h3 class="salon-subsection-title" contenteditable="true">企微 / Dify 客户预约助理</h3>        <div class="salon-chat-pair">
+          <figure class="salon-shot salon-shot--chat">
+            <figcaption contenteditable="true">AI 代理对话 · 按照片推荐发型与发色</figcaption>
+            <img
+              src="flyer/1.png"
+              srcset="flyer/1.png 720w"
+              sizes="(max-width: 720px) min(88vw, 232px), 232px"
+              alt="美发案例：上传照片后 AI 推荐发型与染色方案"
+              width="720"
+              height="1280"
+              decoding="async"
+            />
+          </figure>
+          <figure class="salon-shot salon-shot--chat">
+            <figcaption contenteditable="true">AI 代理对话 · 门店时间确认与预约摘要</figcaption>
+            <img
+              src="flyer/4.png"
+              srcset="flyer/4.png 720w"
+              sizes="(max-width: 720px) min(88vw, 232px), 232px"
+              alt="美发案例：企微/Dify 对话完成预约与信息确认"
+              width="720"
+              height="1280"
+              decoding="async"
+            />
+          </figure>
+        </div>
+
+        <h3 class="salon-subsection-title" contenteditable="true">飞书多维表 · 预约与渠道回写</h3>
+        <figure class="salon-shot salon-shot--table">
+          <figcaption contenteditable="true">飞书多维表 · 预约字段与渠道回写</figcaption>
+          <div class="salon-table-wrap">
+            <table class="salon-bitable">
+              <thead>
+                <tr>
+                  <th contenteditable="true">手机号</th>
+                  <th contenteditable="true">门店</th>
+                  <th contenteditable="true">项目</th>
+                  <th contenteditable="true">意向时间</th>
+                  <th contenteditable="true">发色方案</th>
+                  <th contenteditable="true">染发史</th>
+                  <th contenteditable="true">状态</th>
+                  <th contenteditable="true">渠道</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td contenteditable="true">15878945687</td>
+                  <td><span class="pill pill-store-a" contenteditable="true">北京三里屯店</span></td>
+                  <td class="cell-tags">
+                    <span class="pill pill-svc" contenteditable="true">染发</span>
+                    <span class="pill pill-svc" contenteditable="true">烫发</span>
+                  </td>
+                  <td contenteditable="true">下周四 15:00</td>
+                  <td contenteditable="true">雾感灰棕</td>
+                  <td><span class="pill pill-no" contenteditable="true">否</span></td>
+                  <td><span class="pill pill-wait" contenteditable="true">pending</span></td>
+                  <td><span class="pill pill-ch-wecom" contenteditable="true">wecom</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">13900139000</td>
+                  <td><span class="pill pill-store-b" contenteditable="true">东门店</span></td>
+                  <td class="cell-tags"><span class="pill pill-svc" contenteditable="true">洗剪吹</span></td>
+                  <td contenteditable="true">下周一 14:00</td>
+                  <td contenteditable="true">—</td>
+                  <td><span class="pill pill-no" contenteditable="true">否</span></td>
+                  <td><span class="pill pill-done" contenteditable="true">completed</span></td>
+                  <td><span class="pill pill-ch-dify" contenteditable="true">dify</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">18612345678</td>
+                  <td><span class="pill pill-store-c" contenteditable="true">汉峪金谷店</span></td>
+                  <td class="cell-tags">
+                    <span class="pill pill-svc" contenteditable="true">染发</span>
+                    <span class="pill pill-svc" contenteditable="true">洗剪吹</span>
+                  </td>
+                  <td contenteditable="true">周三 10:30</td>
+                  <td contenteditable="true">摩卡棕</td>
+                  <td><span class="pill pill-yes" contenteditable="true">是</span></td>
+                  <td><span class="pill pill-done" contenteditable="true">completed</span></td>
+                  <td><span class="pill pill-ch-wecom" contenteditable="true">wecom</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">13500001111</td>
+                  <td><span class="pill pill-store-a" contenteditable="true">北京三里屯店</span></td>
+                  <td class="cell-tags"><span class="pill pill-svc" contenteditable="true">烫发</span></td>
+                  <td contenteditable="true">周五 18:00</td>
+                  <td contenteditable="true">奶茶灰</td>
+                  <td><span class="pill pill-yes" contenteditable="true">是</span></td>
+                  <td><span class="pill pill-wait" contenteditable="true">pending</span></td>
+                  <td><span class="pill pill-ch-dify" contenteditable="true">dify</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">17788889999</td>
+                  <td><span class="pill pill-store-b" contenteditable="true">东门店</span></td>
+                  <td class="cell-tags"><span class="pill pill-svc" contenteditable="true">染发</span></td>
+                  <td contenteditable="true">下周二 11:00</td>
+                  <td contenteditable="true">渐变染（深→浅）</td>
+                  <td><span class="pill pill-no" contenteditable="true">否</span></td>
+                  <td><span class="pill pill-done" contenteditable="true">completed</span></td>
+                  <td><span class="pill pill-ch-wecom" contenteditable="true">wecom</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">18866661234</td>
+                  <td><span class="pill pill-store-c" contenteditable="true">汉峪金谷店</span></td>
+                  <td class="cell-tags">
+                    <span class="pill pill-svc" contenteditable="true">染发</span>
+                    <span class="pill pill-svc" contenteditable="true">烫发</span>
+                    <span class="pill pill-svc" contenteditable="true">洗剪吹</span>
+                  </td>
+                  <td contenteditable="true">周六 16:00</td>
+                  <td contenteditable="true">雾感灰棕</td>
+                  <td><span class="pill pill-yes" contenteditable="true">是</span></td>
+                  <td><span class="pill pill-wait" contenteditable="true">pending</span></td>
+                  <td><span class="pill pill-ch-dify" contenteditable="true">dify</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </figure>
+      </div>
+
+      <div class="finance-rag-section">
+        <h2 contenteditable="true">财务 RAG 案例 · Node-centric</h2>
+        <p class="finance-rag-kicker" contenteditable="true">
+          Hybrid retrieval · 可选重排序 · Langfuse 追踪；Postgres 节点 + Qdrant 稠密 + 稀疏（Postgres 全文 / OpenSearch 财务配置）
+        </p>
+        <figure class="finance-rag-figure">
+          <figcaption contenteditable="true">财务问答工作台 · 历史 / 证据链 / 文件范围（RAG 检索增强）</figcaption>
+          <div class="finance-rag-imgwrap">
+            <img
+              src="flyer/finance.png"
+              alt="财务问答：基于财报与申报文件的检索增强问答界面"
+              width="1200"
+              height="675"
+              decoding="async"
+            />
+          </div>
+        </figure>
+
+        <div class="flow-section finance-rag-flow-wrap">
+          <div class="flow-arena">
+            <div class="flow-arena-inner">
+              <div class="flow-head">
+                <div class="tag" contenteditable="true">NODE-CENTRIC RAG</div>
+                <h3 contenteditable="true">财务 · Hybrid retrieval</h3>
+                <p contenteditable="true">Postgres-backed nodes · Qdrant 稠密 · 稀疏（PG 全文 / OpenSearch 财务 profile）· 可选 Langfuse trace</p>
+              </div>
+
+              <div class="flow-label" contenteditable="true">主链路 ASK PATH</div>
+              <div class="flow-track">
+                <span class="fn fn-a" contenteditable="true">Routing / 证据规划</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-b" contenteditable="true">Hybrid retrieval</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-c" contenteditable="true">Context 装配</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-d" contenteditable="true">LLM 回答</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-e" contenteditable="true">Eval（可选）</span>
+              </div>
+              <p class="flow-foot finance-rag-ask-note" contenteditable="true">
+                <strong>Routing</strong>：finance-aware evidence plan — <strong>narrative targets</strong>、<strong>filing scope</strong>、<strong>period hints</strong>。
+                <strong>Retrieval</strong>：<strong>section tree</strong> 命中 → <strong>leaf descendants</strong> → <strong>RRF</strong> fusion → 可选 <strong>Bocha</strong> rerank。
+                <strong>Context</strong>：<strong>Sibling expansion</strong>（bounded seeds / limit / decay）+ <code>CONTEXT_CHAR_BUDGET</code>；<strong>narrative_targets</strong> 可叠加 <strong>title match</strong>；非单一 <code>top_k</code>。
+                <strong>Eval</strong>：RAGAS → <code>POST /agent/api/ask/evaluate/pending</code>（<code>RAGAS_BATCH_SIZE</code>）→ 分数至 <strong>Langfuse</strong>。
+              </p>
+
+              <div class="flow-label" contenteditable="true">并行检索 HYBRID</div>
+              <div class="flow-split">
+                <div class="pillar">
+                  <div class="pillar-cap" contenteditable="true">Dense</div>
+                  <span class="fn fn-p1" contenteditable="true">Qdrant</span>
+                  <div class="pillar-sub" contenteditable="true">稠密向量 · 绑定 Postgres 节点</div>
+                </div>
+                <div class="pillar">
+                  <div class="pillar-cap" contenteditable="true">Sparse</div>
+                  <span class="fn fn-p2" contenteditable="true">PG FTS / OpenSearch</span>
+                  <div class="pillar-sub" contenteditable="true">全文或 OpenSearch 稀疏 · finance profile</div>
+                </div>
+                <div class="pillar">
+                  <div class="pillar-cap" contenteditable="true">Fusion</div>
+                  <span class="fn fn-p3" contenteditable="true">RRF · Rerank</span>
+                  <div class="pillar-sub" contenteditable="true">叙事查询叶子融合 · 可选重排</div>
+                </div>
+              </div>
+
+              <div class="flow-merge">
+                <span class="flow-arrow">↓</span>
+                <div>
+                  <span class="fn fn-merge" contenteditable="true">离线入库 Ingest</span>
+                </div>
+                <span class="flow-arrow">↓</span>
+              </div>
+
+              <div class="flow-label" contenteditable="true">INGEST PIPELINE</div>
+              <div class="flow-track">
+                <span class="fn fn-a" contenteditable="true">section_path</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-b" contenteditable="true">Section tree</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-c" contenteditable="true">叶 = chunks</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-d" contenteditable="true">向量 + 稀疏索引</span>
+                <span class="flow-arrow">→</span>
+                <span class="fn fn-e" contenteditable="true">元数据</span>
+              </div>
+              <p class="flow-foot" contenteditable="true">
+                元数据：<strong>finance_accns</strong>、<strong>form</strong>、<strong>periods</strong>；与 Ask 路径共用同一套 node-centric 数据模型。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer-cta">
+      <div class="footer-cta-inner">
+        <div class="name" contenteditable="true">临朐县测验软件开发工作室</div>
+        <div class="contact-line">
+          <span contenteditable="true">18310607536（电话同微信）</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span contenteditable="true">liuzhenjun2002@outlook.com</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

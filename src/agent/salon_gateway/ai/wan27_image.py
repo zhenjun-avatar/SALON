@@ -61,9 +61,8 @@ class Wan27ImageClient:
         self._model = model
         self._base = base_url.rstrip("/")
 
-    async def generate_hairstyle(self, image_ref: str, style_prompt: str) -> HairstyleResult:
-        """基于用户图 + 文本生成发型效果图；不使用 SegmentHair mask。"""
-        prompt = build_hairstyle_prompt(style_prompt)
+    async def edit_with_prompt(self, image_ref: str, prompt: str) -> HairstyleResult:
+        """万相 2.7 多模态编辑：直接使用完整英文/中文 prompt（家居示意等）。"""
         payload: dict[str, Any] = {
             "model": self._model,
             "input": {
@@ -128,6 +127,11 @@ class Wan27ImageClient:
             return HairstyleResult(preview_url=preview_url, task_id=str(task_id), used_mask=False)
 
         raise RuntimeError(f"wan2.7: unexpected response (no image URL): {data}")
+
+    async def generate_hairstyle(self, image_ref: str, style_prompt: str) -> HairstyleResult:
+        """基于用户图 + 文本生成发型效果图；不使用 SegmentHair mask。"""
+        prompt = build_hairstyle_prompt(style_prompt)
+        return await self.edit_with_prompt(image_ref, prompt)
 
     async def _poll(self, task_id: str) -> str:
         headers = {"Authorization": f"Bearer {self._api_key}"}
