@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -104,3 +106,81 @@ class DifyChatClient:
         new_id = data.get("conversation_id")
         cid = str(new_id) if new_id else conversation_id
         return answer, cid
+
+    async def stream_complete(
+        self,
+        *,
+        user: str,
+        query: str,
+        conversation_id: str | None,
+        files: list[dict[str, Any]] | None = None,
+        inputs: dict[str, Any] | None = None,
+        conversation_id_holder: list[str | None],
+    ) -> AsyncIterator[bytes]:
+        """``response_mode=streaming``：按行透传 Dify SSE，并在 ``conversation_id_holder[0]`` 写入会话 id。"""
+        conversation_id_holder.clear()
+        conversation_id_holder.append(None)
+
+        if not self._key:
+            err = json.dumps({"event": "error", "message": "服务未配置 Dify API Key。"}, ensure_ascii=False)
+            yield f"data: {err}\n\n".encode("utf-8")
+            return
+
+        url = f"{self._base}/chat-messages"
+        merged_inputs: dict[str, Any] = {**self._default_inputs, **(inputs or {})}
+        payload: dict[str, Any] = {
+            "inputs": merged_inputs,
+            "query": query,
+            "user": user,
+            "response_mode": "streaming",
+        }
+        if files:
+            payload["files"] = files
+        headers = {"Authorization": f"Bearer {self._key}"}
+
+        logger.debug(
+            "dify chat-messages (stream) user={} cid={} files={}",
+            user,
+            conversation_id,
+            files,
+        )
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            use_cid = conversation_id
+            for is_retry in (False, True):
+                p = dict(payload)
+                if use_cid:
+                    p["conversation_id"] = use_cid
+                async with client.stream("POST", url, json=p, headers=headers) as r:
+                    if r.status_code in (400, 404) and use_cid and not is_retry:
+                        await r.aread()
+                        self._log_error_body(r)
+                        logger.warning(
+                            "dify chat-messages stream returned {} with conversation_id; retrying as new conversation",
+                            r.status_code,
+                        )
+                        use_cid = None
+                        continue
+                    if r.is_error:
+                        try:
+                            body = (await r.aread()).decode("utf-8", errors="replace")[:4000]
+                        except Exception:
+                            body = ""
+                        logger.error("dify stream POST {} HTTP {}: {}", r.request.url, r.status_code, body)
+                        r.raise_for_status()
+
+                    async for line in r.aiter_lines():
+                        if not line.strip():
+                            continue
+                        if line.startswith("data:"):
+                            raw = line[5:].strip()
+                            if raw and raw != "[DONE]":
+                                try:
+                                    obj = json.loads(raw)
+                                    cid = obj.get("conversation_id")
+                                    if isinstance(cid, str) and cid:
+                                        conversation_id_holder[0] = cid
+                                except json.JSONDecodeError:
+                                    pass
+                        yield f"{line}\n\n".encode("utf-8")
+                break

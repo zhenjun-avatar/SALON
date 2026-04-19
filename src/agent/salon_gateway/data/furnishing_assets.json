@@ -4,28 +4,28 @@
     {
       "id": "demo-sofa-01",
       "category": "sofa",
-      "name": "示例·三人绒面沙发（产品参考图：墨绿/深绿，影棚白底）",
+      "name": "三人绒面沙发",
       "image_url": "https://quizmesh.tech/salon/furnishing-asset-files/sofa-living.jpg",
       "tags": ["沙发", "客厅", "绒面", "墨绿", "现代"]
     },
     {
       "id": "demo-coffee-table-01",
       "category": "coffee_table",
-      "name": "示例·茶几与客厅陈设（本机托管）",
+      "name": "茶几与客厅陈设",
       "image_url": "https://quizmesh.tech/salon/furnishing-asset-files/coffee-table.jpg",
       "tags": ["茶几", "客厅", "木色"]
     },
     {
       "id": "demo-chair-01",
       "category": "chair",
-      "name": "示例·餐椅/座椅（本机托管）",
+      "name": "餐椅/座椅",
       "image_url": "https://quizmesh.tech/salon/furnishing-asset-files/dining-chairs.jpg",
       "tags": ["餐椅", "桌椅", "餐厅"]
     },
     {
       "id": "demo-bedding-01",
       "category": "bedding",
-      "name": "示例·卧室床品（本机托管）",
+      "name": "卧室床品",
       "image_url": "https://quizmesh.tech/salon/furnishing-asset-files/bedroom-bedding.jpg",
       "tags": ["床品", "卧室", "软装"]
     }

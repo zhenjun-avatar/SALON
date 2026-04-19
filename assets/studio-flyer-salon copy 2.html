@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>宣传单 · 美容美发 — 临朐县测验软件开发工作室</title>
+  <style>
+    :root {
+      --bg-soft: #f4f6fb;
+      --bg-card: #ffffff;
+      --accent: #0d9488;
+      --gold: #c4a35a;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --border: rgba(148, 163, 184, 0.4);
+      --print-safe-h: 277mm;
+    }
+    * { box-sizing: border-box; }
+    html {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      height: 100%;
+    }
+    body {
+      margin: 0;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(165deg, #ecfdf5 0%, #f8fafc 45%, #e2e8f0 100%);
+      line-height: 1.4;
+      font-size: 12px;
+    }
+    .sheet {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 210mm;
+      margin: 8px auto 0;
+      padding: 0 0 6px;
+      box-shadow: 0 18px 60px rgba(15, 23, 42, 0.1);
+      background: var(--bg-soft);
+      min-height: calc(100vh - 96px);
+      min-height: calc(100dvh - 96px);
+    }
+
+    /* 页顶：与 studio-flyer-salon copy.html 同款紧凑头区 */
+    .hero {
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 55%, #ecfdf5 100%);
+      padding: 8px 12px 8px;
+      border-bottom: 1px solid #d1fae5;
+    }
+    .hero-kicker {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #0f766e;
+      margin-bottom: 4px;
+    }
+    .hero h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      margin: 0 0 4px;
+      line-height: 1.15;
+    }
+    .hero .sub {
+      font-size: 10px;
+      color: #475569;
+      max-width: 48em;
+      margin: 0;
+      line-height: 1.4;
+    }
+    .hero-line {
+      width: 32px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--gold), var(--accent));
+      border-radius: 2px;
+      margin-top: 8px;
+    }
+
+    .body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 6px 8px 0;
+      max-width: 210mm;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    h2 {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    h2::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    /* 美发落地案例：整页 flex，内容区吃满剩余高度 */
+    .salon-showcase {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      margin-top: 4px;
+      padding: 6px 6px 2px;
+      border-top: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(241, 245, 249, 0.75) 0%, rgba(248, 250, 252, 0.4) 38%, transparent 72%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+    .salon-showcase > h2 {
+      flex-shrink: 0;
+    }
+    .salon-body-fill {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      gap: 4px;
+    }
+    .salon-showcase-lead {
+      margin: 0 0 10px;
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 42em;
+    }
+    .salon-shot {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    }
+    .salon-shot:last-child { margin-bottom: 0; }
+    .salon-shot figcaption {
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .salon-shot img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+      image-rendering: auto;
+      image-rendering: high-quality;
+    }
+
+    .salon-chat-section {
+      flex: 0.95;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .salon-chat-section .salon-subsection-title {
+      flex-shrink: 0;
+      margin: 2px 0 3px;
+    }
+    .salon-chat-pair {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      min-height: 0;
+      align-items: stretch;
+    }
+    .salon-chat-pair .salon-shot {
+      margin: 0;
+      max-width: none;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .salon-chat-pair .salon-shot figcaption {
+      flex: 0 0 auto;
+      padding: 4px 6px;
+      font-size: 7px;
+    }
+    .salon-chat-pair .salon-shot img {
+      flex: 1 1 0;
+      min-height: 0;
+      max-height: none;
+      object-fit: cover;
+      object-position: top center;
+    }
+    @media (max-width: 720px) {
+      .salon-chat-pair {
+        grid-template-columns: 1fr;
+      }
+      .salon-chat-pair .salon-shot:not(:last-child) {
+        margin-bottom: 18px;
+      }
+    }
+
+    /* 美发案例：原图 + 三方案染色效果图（assets/flyer） */
+    .salon-case-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      margin: 0;
+    }
+    .salon-case-block--last {
+      margin-bottom: 0;
+    }
+    .salon-case-title {
+      flex-shrink: 0;
+      margin: 0 0 3px;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+    }
+    /* 美发案例内：对话区 / 飞书表 前的章节小标题 */
+    .salon-subsection-title {
+      margin: 4px 0 3px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+    .salon-case-grid {
+      flex: 1 1 0;
+      min-height: 0;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-rows: minmax(0, 1fr);
+      gap: 4px;
+      align-items: stretch;
+    }
+    .salon-case-grid .salon-shot {
+      margin: 0;
+      max-width: none;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .salon-case-grid .salon-shot figcaption {
+      flex: 0 0 auto;
+      padding: 3px 4px;
+      font-size: 6.5px;
+      font-weight: 600;
+      line-height: 1.45;
+      letter-spacing: 0.02em;
+    }
+    .salon-case-grid .salon-shot--orig figcaption {
+      color: #334155;
+    }
+    .salon-case-grid .salon-shot img {
+      flex: 1 1 0;
+      min-height: 0;
+      width: 100%;
+      max-height: none;
+      object-fit: contain;
+    }
+    @media (max-width: 900px) {
+      .salon-case-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .salon-table-section {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .salon-table-section .salon-subsection-title {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .salon-shot--table {
+      max-width: 100%;
+      flex-shrink: 0;
+    }
+    .salon-shot--table > figcaption {
+      padding: 4px 6px;
+      font-size: 7px;
+    }
+    .salon-table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 4px 5px 5px;
+      background: #fafbfc;
+    }
+    .salon-bitable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 6.5px;
+      line-height: 1.45;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .salon-bitable th,
+    .salon-bitable td {
+      border: 1px solid #e8ecf1;
+      padding: 2px 3px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .salon-bitable thead th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #475569;
+      white-space: nowrap;
+    }
+    .salon-bitable tbody tr:nth-child(even) { background: #fafbfc; }
+    .salon-bitable .cell-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .salon-bitable .pill {
+      display: inline-block;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 6px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .pill-store-a { background: #e0f2fe; color: #0369a1; }
+    .pill-store-b { background: #ffedd5; color: #c2410c; }
+    .pill-store-c { background: #fef9c3; color: #854d0e; }
+    .pill-svc { background: #f1f5f9; color: #334155; }
+    .pill-yes { background: #dcfce7; color: #166534; }
+    .pill-no { background: #f1f5f9; color: #64748b; }
+    .pill-done { background: #ffedd5; color: #9a3412; }
+    .pill-wait { background: #dbeafe; color: #1d4ed8; }
+    .pill-ch-wecom { background: #ecfdf5; color: #047857; }
+    .pill-ch-dify { background: #eef2ff; color: #4338ca; }
+
+    footer.footer-cta {
+      flex-shrink: 0;
+      margin: 4px 8px 0;
+      padding: 0 0 4px;
+      text-align: center;
+      border-top: none;
+    }
+    footer.footer-cta .footer-cta-inner {
+      padding: 6px 10px 8px;
+      background: linear-gradient(165deg, #f1f5f9 0%, #e8eef5 100%);
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    footer.footer-cta .name {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: 0.06em;
+      margin: 0 0 6px;
+      line-height: 1.3;
+    }
+    footer.footer-cta .name::after {
+      content: "";
+      display: block;
+      width: 36px;
+      height: 2px;
+      margin: 8px auto 0;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--gold), var(--accent));
+    }
+    footer.footer-cta .contact-line {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: 0.03em;
+      line-height: 1.5;
+    }
+    footer.footer-cta .contact-line .sep {
+      display: inline-block;
+      margin: 0 12px;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    [contenteditable="true"]:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* 屏幕-only：打印操作提示（与 copy.html 同款紧凑样式） */
+    .print-help {
+      flex-shrink: 0;
+      max-width: 210mm;
+      margin: 8px auto 0;
+      padding: 8px 12px;
+      font-size: 10px;
+      color: #334155;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 6px;
+      line-height: 1.45;
+    }
+    .print-help strong { color: #92400e; }
+    .print-help ol { margin: 4px 0 0; padding-left: 1.2em; }
+    .print-help code { font-size: 9px; background: #fef3c7; padding: 1px 4px; border-radius: 3px; }
+
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+
+    @media print {
+      .print-help { display: none !important; }
+      body {
+        background: #fff;
+        min-height: 0;
+        height: auto;
+      }
+      .sheet {
+        box-shadow: none;
+        max-width: none;
+        width: 100%;
+        min-height: var(--print-safe-h);
+        padding-bottom: 0;
+      }
+      .body {
+        padding-left: 0;
+        padding-right: 0;
+        flex: 1;
+        min-height: 0;
+      }
+      .hero {
+        border-bottom-color: #bae6d4;
+        padding: 8px 10px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .salon-shot { box-shadow: none; border-color: #ccc; }
+      .salon-table-wrap { background: #fff; }
+      .salon-bitable { font-size: 9px; }
+      .salon-bitable th,
+      .salon-bitable td { padding: 5px 6px; }
+      .salon-chat-pair .salon-shot {
+        max-width: none;
+      }
+      .salon-chat-pair .salon-shot img {
+        max-height: none;
+      }
+      .salon-case-grid .salon-shot img {
+        max-height: none;
+      }
+      /*
+        打印分页：Chrome/Edge 在 overflow:hidden 的 figure 内拆页时，常出现「上一页只有空白框、图片在下一页」。
+        美发整卡 avoid；打印时放开 figure 的 overflow。
+      */
+      .salon-showcase {
+        break-before: auto;
+        page-break-before: auto;
+        box-shadow: none;
+        border-top-color: #94a3b8;
+        background: #fafbfc;
+      }
+      .salon-showcase > h2,
+      .salon-showcase > .salon-showcase-lead {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      .salon-subsection-title {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      .salon-chat-pair {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .salon-chat-pair .salon-shot {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        overflow: visible !important;
+      }
+      /* 屏幕窄于 900px 时栅格为 2 列；打印视口常 <900px，会误触发。打印强制 4 列以与屏上传单一致。 */
+      .salon-case-grid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      }
+      .salon-case-grid .salon-shot {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        overflow: visible !important;
+      }
+      /* 飞书表格区允许跨页，避免整表被推到空白页 */
+      .salon-shot--table {
+        break-inside: auto;
+        page-break-inside: auto;
+      }
+      footer.footer-cta {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      footer.footer-cta .footer-cta-inner {
+        box-shadow: none;
+        border-color: #bbb;
+        background: #f1f5f9;
+      }
+      h2 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="print-help" aria-label="打印说明">
+    <strong>单页打印</strong>
+    <ol>
+      <li>屏幕预览：传单区域会尽量占满<strong>一屏高度</strong>，图片区随高度伸缩。</li>
+      <li><code>Ctrl+P</code> → A4 纵向；打印目标<strong>一页</strong>，仍溢出时缩放 <strong>92%～98%</strong>，并取消「页眉和页脚」。</li>
+    </ol>
+  </aside>
+  <div class="sheet">
+    <header class="hero">
+      <div class="hero-kicker" contenteditable="true">Agent · 多模态 · 造型预约</div>
+      <h1 contenteditable="true">AI代理 · 美发案例 · 发型染色与智能预约</h1>
+      <p class="sub" contenteditable="true">
+        上传形象照，在对话中选择发色与发型方案；企微侧完成档期与预约摘要，飞书多维表回写渠道与状态。
+      </p>
+      <div class="hero-line" aria-hidden="true"></div>
+    </header>
+
+    <div class="body">
+      <div class="salon-showcase">
+        <h2 contenteditable="true">美发案例 · 发型师助理</h2>
+        <div class="salon-body-fill">
+        <div class="salon-case-block">
+          <h3 class="salon-case-title" contenteditable="true">Girl · 长发（原图 flyer/girl.png → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/girl.png" alt="女孩长发原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 空气感微卷锁骨发，奶茶棕（#8C6A5D），侧分轻薄刘海+发尾内扣</figcaption>
+              <img
+                src="flyer/girl-long-1.png"
+                alt="女孩长发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照空气感微卷锁骨发，奶茶棕（#8C6A5D），侧分轻薄刘海+发尾内扣生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 法式慵懒大波浪，冷灰紫（#7A6B80），中分+发根蓬松处理</figcaption>
+              <img
+                src="flyer/girl-long-2.png"
+                alt="女孩长发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照法式慵懒大波浪，冷灰紫（#7A6B80），中分+发根蓬松处理生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 高层次直发+微层次剪裁，蜂蜜金（#D4B892），齐耳长度+发尾轻微外翻</figcaption>
+              <img
+                src="flyer/girl-long-3.png"
+                alt="女孩长发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照高层次直发+微层次剪裁，蜂蜜金（#D4B892），齐耳长度+发尾轻微外翻生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-case-block salon-case-block--last">
+          <h3 class="salon-case-title" contenteditable="true">Girl · 短发（原图 flyer/girl.png → 方案效果图）</h3>
+          <div class="salon-case-grid">
+            <figure class="salon-shot salon-shot--orig">
+              <figcaption contenteditable="true">原图（实拍）</figcaption>
+              <img src="flyer/girl.png" alt="女孩短发场景原图" width="720" height="960" decoding="async" />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案一 · 齐耳微卷短发，冷灰紫（#8A7F8D），侧分空气刘海+发尾内扣，显脸小又带点甜酷感</figcaption>
+              <img
+                src="flyer/girl-short-1.png"
+                alt="女孩短发方案一效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照齐耳微卷短发，冷灰紫（#8A7F8D），侧分空气刘海+发尾内扣，显脸小又带点甜酷感生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案二 · 法式慵懒短Bob，蜂蜜金棕（#7D5A44），中分+发尾外翻，温柔知性，适合日常通勤</figcaption>
+              <img
+                src="flyer/girl-short-2.png"
+                alt="女孩短发方案二效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照法式慵懒短Bob，蜂蜜金棕（#7D5A44），中分+发尾外翻，温柔知性，适合日常通勤生成效果图，请稍候约10秒……"
+              />
+            </figure>
+            <figure class="salon-shot">
+              <figcaption contenteditable="true">方案三 · 层次感精灵短发，奶茶栗棕（#6E443C），无刘海+两侧蓬松剪裁，清爽利落，突出五官立体度</figcaption>
+              <img
+                src="flyer/girl-short-3.png"
+                alt="女孩短发方案三效果图"
+                width="720"
+                height="960"
+                decoding="async"
+                title="好的！正在为您按照层次感精灵短发，奶茶栗棕（#6E443C），无刘海+两侧蓬松剪裁，清爽利落，突出五官立体度生成效果图，请稍候约10秒……"
+              />
+            </figure>
+          </div>
+        </div>
+
+        <div class="salon-chat-section">
+        <h3 class="salon-subsection-title" contenteditable="true">企微 · 客户预约助理（对话摘录）</h3>
+        <div class="salon-chat-pair">
+          <figure class="salon-shot salon-shot--chat">
+            <figcaption contenteditable="true">AI 代理对话 · 按照片推荐发型与发色</figcaption>
+            <img
+              src="flyer/1.png"
+              srcset="flyer/1.png 720w"
+              sizes="(max-width: 720px) min(88vw, 232px), 232px"
+              alt="美发案例：上传照片后 AI 推荐发型与染色方案"
+              width="720"
+              height="1280"
+              decoding="async"
+            />
+          </figure>
+          <figure class="salon-shot salon-shot--chat">
+            <figcaption contenteditable="true">AI 代理对话 · 门店时间确认与预约摘要</figcaption>
+            <img
+              src="flyer/4.png"
+              srcset="flyer/4.png 720w"
+              sizes="(max-width: 720px) min(88vw, 232px), 232px"
+              alt="美发案例：企微/Dify 对话完成预约与信息确认"
+              width="720"
+              height="1280"
+              decoding="async"
+            />
+          </figure>
+        </div>
+        </div>
+
+        <div class="salon-table-section">
+        <h3 class="salon-subsection-title" contenteditable="true">飞书多维表 · 预约与渠道回写</h3>
+        <figure class="salon-shot salon-shot--table">
+          <figcaption contenteditable="true">飞书多维表 · 预约字段与渠道回写</figcaption>
+          <div class="salon-table-wrap">
+            <table class="salon-bitable">
+              <thead>
+                <tr>
+                  <th contenteditable="true">手机号</th>
+                  <th contenteditable="true">门店</th>
+                  <th contenteditable="true">项目</th>
+                  <th contenteditable="true">意向时间</th>
+                  <th contenteditable="true">发色方案</th>
+                  <th contenteditable="true">染发史</th>
+                  <th contenteditable="true">状态</th>
+                  <th contenteditable="true">渠道</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td contenteditable="true">15878945687</td>
+                  <td><span class="pill pill-store-a" contenteditable="true">北京三里屯店</span></td>
+                  <td class="cell-tags">
+                    <span class="pill pill-svc" contenteditable="true">染发</span>
+                    <span class="pill pill-svc" contenteditable="true">烫发</span>
+                  </td>
+                  <td contenteditable="true">下周四 15:00</td>
+                  <td contenteditable="true">雾感灰棕</td>
+                  <td><span class="pill pill-no" contenteditable="true">否</span></td>
+                  <td><span class="pill pill-wait" contenteditable="true">pending</span></td>
+                  <td><span class="pill pill-ch-wecom" contenteditable="true">wecom</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">13900139000</td>
+                  <td><span class="pill pill-store-b" contenteditable="true">东门店</span></td>
+                  <td class="cell-tags"><span class="pill pill-svc" contenteditable="true">洗剪吹</span></td>
+                  <td contenteditable="true">下周一 14:00</td>
+                  <td contenteditable="true">—</td>
+                  <td><span class="pill pill-no" contenteditable="true">否</span></td>
+                  <td><span class="pill pill-done" contenteditable="true">completed</span></td>
+                  <td><span class="pill pill-ch-dify" contenteditable="true">dify</span></td>
+                </tr>
+                <tr>
+                  <td contenteditable="true">18612345678</td>
+                  <td><span class="pill pill-store-c" contenteditable="true">汉峪金谷店</span></td>
+                  <td class="cell-tags">
+                    <span class="pill pill-svc" contenteditable="true">染发</span>
+                    <span class="pill pill-svc" contenteditable="true">洗剪吹</span>
+                  </td>
+                  <td contenteditable="true">周三 10:30</td>
+                  <td contenteditable="true">摩卡棕</td>
+                  <td><span class="pill pill-yes" contenteditable="true">是</span></td>
+                  <td><span class="pill pill-done" contenteditable="true">completed</span></td>
+                  <td><span class="pill pill-ch-wecom" contenteditable="true">wecom</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </figure>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer-cta">
+      <div class="footer-cta-inner">
+        <div class="name" contenteditable="true">临朐县测验软件开发工作室</div>
+        <div class="contact-line">
+          <span contenteditable="true">18310607536（电话同微信）</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span contenteditable="true">liuzhenjun2002@outlook.com</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

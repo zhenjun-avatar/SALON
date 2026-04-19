@@ -1,0 +1,22 @@
+.warn {
+  flex-shrink: 0;
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #92400e;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border: 1px solid rgba(252, 211, 77, 0.45);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.warn code {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(252, 211, 77, 0.35);
+}

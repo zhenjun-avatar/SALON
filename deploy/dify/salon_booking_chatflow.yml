@@ -283,7 +283,7 @@ workflow:
       - data:
           authorization:
             config:
-              api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
+              api_key: '_Z1gtxZYpDuNSYrZzzn6A4WFTXAB_SCCdWEXsVWRVpo'
               header: ''
               type: bearer
             type: api-key
@@ -344,7 +344,7 @@ workflow:
       - data:
           authorization:
             config:
-              api_key: 'REPLACE_WITH_SALON_INTERNAL_BOOKING_TOKEN'
+              api_key: '_Z1gtxZYpDuNSYrZzzn6A4WFTXAB_SCCdWEXsVWRVpo'
               header: ''
               type: bearer
             type: api-key

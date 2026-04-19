@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -103,6 +104,46 @@ class SalonPipeline:
             files = [_remote_url_file(image_url)]
         query = content or "[图片] 请分析这张照片，推荐适合的发型或发色方案。"
         return await self._complete(wecom_user, query, files)
+
+    async def handle_with_image_stream(
+        self,
+        wecom_user: str,
+        content: str,
+        *,
+        image_url: str | None = None,
+        upload_file_id: str | None = None,
+    ) -> AsyncIterator[bytes]:
+        """Dify 流式 ``chat-messages``；透传 SSE 字节并在结束后写入会话 id。"""
+        files: list[dict[str, Any]] | None = None
+        if upload_file_id:
+            files = [_upload_file_ref(upload_file_id)]
+        elif image_url:
+            files = [_remote_url_file(image_url)]
+        query = content or "[图片] 请分析这张照片，推荐适合的发型或发色方案。"
+        user = self._dify_user(wecom_user)
+        cid = await self._store.get(user)
+        if not isinstance(self._chat, DifyChatClient):
+            raise RuntimeError("streaming requires DifyChatClient")
+
+        holder: list[str | None] = []
+        try:
+            async for chunk in self._chat.stream_complete(
+                user=user,
+                query=query,
+                conversation_id=cid,
+                files=files,
+                conversation_id_holder=holder,
+            ):
+                yield chunk
+        except httpx.HTTPStatusError:
+            raise
+        except Exception:
+            logger.exception("handle_with_image_stream failed user={}", wecom_user)
+            raise
+        finally:
+            new_cid = holder[0] if holder else None
+            if new_cid:
+                await self._store.set(user, new_cid)
 
 
 def default_pipeline(settings: SalonGatewaySettings) -> SalonPipeline:

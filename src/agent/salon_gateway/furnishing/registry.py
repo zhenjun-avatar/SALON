@@ -85,6 +85,20 @@ class FurnishingRegistry:
         return matched[:lim], total
 
 
+def _normalize_asset_name(raw: str) -> str:
+    """去掉本地/演示用的装饰前缀后缀，便于列表与 Dify BOM 展示。"""
+    t = (raw or "").strip()
+    if t.startswith("示例·"):
+        t = t[len("示例·") :].strip()
+    elif t.startswith("示例:"):
+        t = t[len("示例:") :].strip()
+    if t.endswith("（本机托管）"):
+        t = t[: -len("（本机托管）")].strip()
+    elif t.endswith("(本机托管)"):
+        t = t[: -len("(本机托管)")].strip()
+    return t
+
+
 def _parse_assets(data: Any) -> list[_Row]:
     if not isinstance(data, dict):
         return []
@@ -106,7 +120,7 @@ def _parse_assets(data: Any) -> list[_Row]:
             _Row(
                 id=aid,
                 category=str(it.get("category") or "").strip(),
-                name=str(it.get("name") or "").strip(),
+                name=_normalize_asset_name(str(it.get("name") or "")),
                 image_url=str(it.get("image_url") or "").strip(),
                 tags=tags,
             )

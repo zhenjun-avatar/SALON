@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import sys
+
+import httpx
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, File, Header, HTTPException, Query, Request, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from salon_gateway.ai.dify import DifyChatClient
@@ -149,7 +152,10 @@ def _auth_simulate(
 ) -> None:
     expected = _normalize_secret(settings.simulate_token or "")
     if not expected:
-        raise HTTPException(status_code=404, detail="simulate disabled")
+        raise HTTPException(
+            status_code=503,
+            detail="simulate disabled: set SALON_SIMULATE_TOKEN in gateway .env",
+        )
     if _bearer_or_header(authorization, x_salon_token) != expected:
         raise HTTPException(status_code=401, detail="unauthorized")
 
@@ -167,10 +173,17 @@ app = FastAPI(title="Salon gateway (WeCom -> Dify -> Feishu)", lifespan=_lifespa
 # 家居素材库本地 JPG → 公网 HTTPS（与反代前缀一致，如 https://quizmesh.tech/salon/furnishing-asset-files/…）
 _FURNISHING_IMAGES_DIR = Path(__file__).resolve().parent / "data" / "furnishing_images"
 if _FURNISHING_IMAGES_DIR.is_dir():
+    _furnishing_dir = str(_FURNISHING_IMAGES_DIR)
     app.mount(
         "/furnishing-asset-files",
-        StaticFiles(directory=str(_FURNISHING_IMAGES_DIR)),
+        StaticFiles(directory=_furnishing_dir),
         name="furnishing_asset_files",
+    )
+    # 直连网关（无反代 strip）时与公网路径一致；勿复用同一 StaticFiles 实例挂两处
+    app.mount(
+        "/salon/furnishing-asset-files",
+        StaticFiles(directory=_furnishing_dir),
+        name="furnishing_asset_files_salon",
     )
 
 
@@ -543,6 +556,10 @@ async def internal_furnishing_assets(
     return FurnishingAssetsListResponse(items=items, total=total)
 
 
+# 与生产反代路径一致（如 /salon/internal/...）；本地直连网关时也可少依赖 Vite rewrite
+app.get("/salon/internal/furnishing-assets", include_in_schema=False)(internal_furnishing_assets)
+
+
 @app.post("/internal/furnishing-compose-preview")
 async def internal_furnishing_compose_preview(
     body: FurnishingComposePreviewRequest,
@@ -670,6 +687,54 @@ async def simulate_wecom_text(
     return {"reply": reply}
 
 
+@app.post("/simulate/wecom-text-stream")
+async def simulate_wecom_text_stream(
+    body: SimulateWecomTextIn,
+    authorization: Annotated[str | None, Header()] = None,
+    x_salon_token: Annotated[str | None, Header(alias="X-Salon-Token")] = None,
+) -> StreamingResponse:
+    """与 ``/simulate/wecom-text`` 相同入参；返回 Dify ``text/event-stream``（流式）。"""
+    settings = get_settings()
+    _auth_simulate(settings, authorization, x_salon_token)
+    pipe = _get_pipeline(settings)
+
+    async def gen():
+        try:
+            async for chunk in pipe.handle_with_image_stream(
+                body.from_user.strip(),
+                body.content,
+                image_url=body.image_url,
+                upload_file_id=body.upload_file_id,
+            ):
+                yield chunk
+        except httpx.HTTPStatusError as e:
+            logger.warning("simulate stream upstream HTTP {}", e.response.status_code)
+            err = json.dumps(
+                {"event": "error", "message": f"Dify 上游 HTTP {e.response.status_code}"},
+                ensure_ascii=False,
+            )
+            yield f"data: {err}\n\n".encode("utf-8")
+        except Exception as e:
+            logger.exception("simulate stream failed: {}", e)
+            err = json.dumps({"event": "error", "message": "对话流式失败"}, ensure_ascii=False)
+            yield f"data: {err}\n\n".encode("utf-8")
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# 与生产反代路径一致（如 /salon/...）；本地直连网关时也可少依赖 Vite rewrite
+app.post("/salon/simulate/wecom-text", include_in_schema=False)(simulate_wecom_text)
+app.post("/salon/simulate/wecom-text-stream", include_in_schema=False)(simulate_wecom_text_stream)
+
+
 @app.post("/simulate/upload-image")
 async def simulate_upload_image(
     file: Annotated[UploadFile, File(description="Image file to upload to Dify")],
@@ -703,3 +768,6 @@ async def simulate_upload_image(
         logger.exception("upload_file_from_bytes failed: {}", e)
         raise HTTPException(status_code=502, detail="dify upload failed") from e
     return {"upload_file_id": fid, "filename": fname, "dify_user": dify_user}
+
+
+app.post("/salon/simulate/upload-image", include_in_schema=False)(simulate_upload_image)
