@@ -9,6 +9,27 @@
       "tags": ["沙发", "客厅", "绒面", "墨绿", "现代"]
     },
     {
+      "id": "demo-sofa-living-001",
+      "category": "sofa",
+      "name": "浅灰布艺双人沙发（木方腿）",
+      "image_url": "https://quizmesh.tech/salon/furnishing-asset-files/sofa-living-001.webp",
+      "tags": ["沙发", "客厅", "双人位", "布艺", "浅灰", "现代简约", "木腿"]
+    },
+    {
+      "id": "demo-sofa-living-002",
+      "category": "sofa",
+      "name": "驼色仿皮拉扣双人沙发",
+      "image_url": "https://quizmesh.tech/salon/furnishing-asset-files/sofa-living-002.webp",
+      "tags": ["沙发", "客厅", "双人位", "仿皮", "驼色", "拉扣", "现代"]
+    },
+    {
+      "id": "demo-sofa-living-003",
+      "category": "sofa",
+      "name": "橄榄绿灯芯绒无扶手沙发单元",
+      "image_url": "https://quizmesh.tech/salon/furnishing-asset-files/sofa-living-003.webp",
+      "tags": ["沙发", "客厅", "单人模块", "灯芯绒", "橄榄绿", "无扶手", "现代"]
+    },
+    {
       "id": "demo-coffee-table-01",
       "category": "coffee_table",
       "name": "茶几与客厅陈设",
