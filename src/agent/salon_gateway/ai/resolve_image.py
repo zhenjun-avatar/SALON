@@ -63,6 +63,7 @@ def _ensure_valid_dimensions(data: bytes, mime: str) -> tuple[bytes, str]:
     放大时用 _SAFE_MIN_DIM + math.ceil：避免 int() 截断导致短边变成 511 或正好 512 被服务端拒绝。
     缩小时用 _SAFE_MAX_DIM + math.floor：避免长边压在 4096 边界上偶发失败。
     JPEG 始终经过 Pillow 重新编码，避免 CMYK / 旋转 / 非标准编码导致万相拒绝。
+    **WebP 与 JPEG 同样走 JPEG 输出**，避免「WebP 原样字节 + image/png MIME」的错配。
     PNG 若尺寸已合法则返回原始字节（跳过重编码）。
     """
     from PIL import ImageOps  # lazy import，避免顶层循环依赖
@@ -85,7 +86,7 @@ def _ensure_valid_dimensions(data: bytes, mime: str) -> tuple[bytes, str]:
         w = min(_SAFE_MAX_DIM, math.floor(w * scale))
         h = min(_SAFE_MAX_DIM, math.floor(h * scale))
 
-    fmt = "JPEG" if mime in ("image/jpeg", "image/jpg") else "PNG"
+    fmt = "JPEG" if mime in ("image/jpeg", "image/jpg", "image/webp") else "PNG"
     out_mime = "image/jpeg" if fmt == "JPEG" else "image/png"
 
     # PNG 且尺寸合法 → 原样返回，跳过重编码

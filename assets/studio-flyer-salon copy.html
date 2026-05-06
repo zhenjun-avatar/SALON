@@ -179,9 +179,50 @@
     .chat-row {
       flex: 1;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
       min-height: 0;
+    }
+
+    .case-strip {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: stretch;
+      column-gap: 6px;
+    }
+
+    .case-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+      color: var(--accent);
+      line-height: 1;
+      user-select: none;
+      padding: 0 2px;
+    }
+
+    .case-arrow--plus {
+      font-size: 26px;
+      font-weight: 800;
+    }
+
+    /* 加粗箭头：略小字号 + 负字距缩短「箭杆」视觉长度 + 八向 shadow */
+    .case-arrow--next {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.18em;
+      text-shadow:
+        0.85px 0 0 currentColor,
+        -0.85px 0 0 currentColor,
+        0 0.75px 0 currentColor,
+        0 -0.75px 0 currentColor,
+        0.7px 0.7px 0 currentColor,
+        -0.7px -0.7px 0 currentColor,
+        0.7px -0.7px 0 currentColor,
+        -0.7px 0.7px 0 currentColor;
+    }
+
+    .chat-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .shot {
@@ -246,8 +287,9 @@
       min-height: 0;
     }
 
+    /* 对话截图用 contain：cover 在等分网格高度下会裁切，PDF 打印时左侧长图常被截断 */
     .chat-row .shot img {
-      object-fit: cover;
+      object-fit: contain;
       object-position: top center;
     }
 
@@ -311,11 +353,31 @@
       .body { padding: 6px 8px 0; flex: 1; min-height: 0; }
       .shot { box-shadow: none; overflow: hidden; }
       .case-strip,
-      .chat-row,
       .cases,
       footer.footer-cta {
         break-inside: avoid;
         page-break-inside: avoid;
+      }
+      .case-arrow--plus {
+        font-size: 20px;
+      }
+      .case-arrow--next {
+        font-size: 19px;
+        letter-spacing: -0.16em;
+        text-shadow:
+          0.55px 0 0 currentColor,
+          -0.55px 0 0 currentColor,
+          0 0.45px 0 currentColor,
+          0 -0.45px 0 currentColor,
+          0.5px 0.5px 0 currentColor,
+          -0.5px -0.5px 0 currentColor,
+          0.5px -0.5px 0 currentColor,
+          -0.5px 0.5px 0 currentColor;
+      }
+      /* 对话双列过高时 avoid 整块会导致引擎压缩/裁切；允许在图带内分页 */
+      .chat-row {
+        break-inside: auto;
+        page-break-inside: auto;
       }
       footer.footer-cta .footer-cta-inner {
         box-shadow: none;
@@ -337,7 +399,7 @@
   <div class="sheet">
     <header class="hero">
       <div class="hero-kicker" contenteditable="true">Agent · 多模态 · 空间陈设</div>
-      <h1 contenteditable="true">AI代理 · 家居案例 · 素材融入空间实景</h1>
+      <h1 contenteditable="true">AI代理 · 家居 · 便于AI SEO的网站设计</h1>
       <p class="sub" contenteditable="true">
         上传空间底图，在对话中选素材 SKU，多图编辑生成家具融入房间的示意（AI 参考）。
       </p>
@@ -345,26 +407,15 @@
     </header>
 
     <div class="body">
-      <h2 contenteditable="true">行业案例 · 家居 / 软装选品</h2>
-      <div class="cases">
-        <article class="case">
-          <div class="case-visual">
-            <img src="flyer/case-homedecor.png" alt="家居场景" width="256" height="256" />
-          </div>
-          <div class="case-body">
-            <strong contenteditable="true">家居素材融入</strong>
-            <p contenteditable="true">素材目录 + 缩略图 · 会话缓存空间图 · 多参考图合成预览</p>
-          </div>
-        </article>
-      </div>
 
       <div class="img-band">
         <h2 contenteditable="true">效果链路 · 底图 / 素材 / 融合示意</h2>
         <div class="case-strip">
           <figure class="shot">
-            <figcaption contenteditable="true">空间实景（底图）</figcaption>
+            <figcaption contenteditable="true">原图（空间底图）</figcaption>
             <img src="flyer/home.jpeg" alt="空间实景底图" decoding="async" />
           </figure>
+          <div class="case-arrow case-arrow--plus" aria-hidden="true" title="叠加素材">+</div>
           <figure class="shot shot--materials">
             <figcaption contenteditable="true">产品素材（SKU）</figcaption>
             <div class="shot-stack">
@@ -386,27 +437,24 @@
               </figure>
             </div>
           </figure>
+          <div class="case-arrow case-arrow--next" aria-hidden="true" title="多图合成">→</div>
           <figure class="shot">
-            <figcaption contenteditable="true">多图合成示意</figcaption>
+            <figcaption contenteditable="true">效果图（合成示意）</figcaption>
             <img src="flyer/merge.png" alt="融合后的空间示意" decoding="async" />
           </figure>
         </div>
       </div>
 
       <div class="img-band img-band--chat">
-        <h2 contenteditable="true">对话界面摘录（一行三列）</h2>
+        <h2 contenteditable="true">对话界面 & 产品目录</h2>
         <div class="chat-row">
           <figure class="shot">
-            <figcaption contenteditable="true">素材目录与缩略图</figcaption>
-            <img src="flyer/chat-furnishing-1.png" alt="聊天截图：待选素材" decoding="async" />
+            <figcaption contenteditable="true">方案卡与合成回显</figcaption>
+            <img src="flyer/chat-furnishing-4.png" alt="聊天截图：软装方案卡与合成示意" decoding="async" />
           </figure>
           <figure class="shot">
-            <figcaption contenteditable="true">选品与说明</figcaption>
-            <img src="flyer/chat-furnishing-2.png" alt="聊天截图：选品列表" decoding="async" />
-          </figure>
-          <figure class="shot">
-            <figcaption contenteditable="true">合成结果回显</figcaption>
-            <img src="flyer/chat-furnishing-3.png" alt="聊天截图：合成结果" decoding="async" />
+            <figcaption contenteditable="true">产品列表</figcaption>
+            <img src="flyer/chat-furnishing-5.png" alt="聊天截图：可选产品与购物车" decoding="async" />
           </figure>
         </div>
       </div>
